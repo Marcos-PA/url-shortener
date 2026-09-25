@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     # Signs login tokens. Anyone with it can log in as any user: set a long random value in production.
     SECRET_KEY: str = DEV_SECRET_KEY
     TOKEN_TTL_DAYS: int = 7
+    # Links created without logging in are deleted after this many hours.
+    ANONYMOUS_LINK_TTL_HOURS: int = 2
 
     # Supabase/Render entregam "postgresql://" ou "postgres://"; SQLAlchemy precisa do driver psycopg 3.
     @field_validator("DATABASE_URL")

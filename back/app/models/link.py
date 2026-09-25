@@ -1,4 +1,6 @@
-from sqlalchemy import ForeignKey, Index, Integer, String, text
+from datetime import UTC, datetime
+
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -23,3 +25,8 @@ class Link(Base):
     code: Mapped[str] = mapped_column(String(16), unique=True)
     clicks: Mapped[int] = mapped_column(Integer, default=0)
     owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    # Always set by the app; nullable in the table only because SQLite can't add a NOT NULL column with a
+    # non-constant default to an existing table (see migration d4e5f6a7b8c9).
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=lambda: datetime.now(UTC)
+    )

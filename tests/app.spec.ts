@@ -1,11 +1,21 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
 // Banco SQLite descartável (ver webServer no playwright.config.ts), recriado a cada execução.
 
 // The page has two tables (your links and the most clicked ranking): rows of the first one.
 const linksTable = (page: Page) => page.getByRole("table", { name: "Your links" });
 
-test("links: encurta, abre o link curto e o clique é contado", async ({ page, context }) => {
+// Anonymous visitors only see the links created in the current page: tests that need a saved list log in.
+async function loginAs(page: Page, request: APIRequestContext) {
+  const email = `u-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
+  const res = await request.post("/api/auth/register", { data: { email, password: "s3cret-pass" } });
+  const { access_token } = await res.json();
+  await page.addInitScript((token) => localStorage.setItem("auth_token", token), access_token);
+  return { email, headers: { Authorization: `Bearer ${access_token}` } };
+}
+
+test("links: encurta, abre o link curto e o clique é contado", async ({ page, context, request }) => {
+  await loginAs(page, request);
   const url = `https://example.com/e2e/${Date.now()}`;
   await context.route("https://example.com/**", (r) => r.fulfill({ body: "destino" }));
   await page.goto("/");
@@ -33,8 +43,9 @@ test("links: encurta, abre o link curto e o clique é contado", async ({ page, c
 });
 
 test("excluir pede confirmação e remove o link", async ({ page, request }) => {
+  const { headers } = await loginAs(page, request);
   const url = `https://example.com/delete/${Date.now()}`;
-  const { code } = await (await request.post("/api/links", { data: { url } })).json();
+  const { code } = await (await request.post("/api/links", { data: { url }, headers })).json();
   await page.goto("/");
   const linkRow = linksTable(page).getByRole("row").filter({ hasText: url });
 
@@ -54,7 +65,9 @@ test("excluir pede confirmação e remove o link", async ({ page, request }) => 
 test("copiar põe o link curto na área de transferência", async ({ page, context, request, browserName }) => {
   test.skip(browserName !== "chromium", "permissão de clipboard só no Chromium");
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  const { code, short_url } = await (await request.post("/api/links", { data: { url: `https://example.com/copy/${Date.now()}` } })).json();
+  const { headers } = await loginAs(page, request);
+  const data = { url: `https://example.com/copy/${Date.now()}` };
+  const { code, short_url } = await (await request.post("/api/links", { data, headers })).json();
   await page.goto("/");
   await page.getByRole("button", { name: `Copy "${code}"` }).click();
   await expect(page.getByText("Short link copied.")).toBeVisible();
@@ -118,7 +131,7 @@ test("conta: criar, encurtar, sair e entrar de novo mantém os links do usuário
   await expect(linksTable(page).getByRole("row").filter({ hasText: url })).toBeVisible();
 
   await header.getByRole("button", { name: "Log out" }).click();
-  await expect(page.getByText(/log in to keep track/)).toBeVisible();
+  await expect(page.getByText(/Log in to keep them/)).toBeVisible();
   await expect(linksTable(page).getByRole("row").filter({ hasText: url })).toHaveCount(0);
 
   await header.getByRole("link", { name: "Log in" }).click();
@@ -151,14 +164,35 @@ test("tabela 'Most clicked' mostra o ranking sem o dono", async ({ page, request
   const row = top.getByRole("row").filter({ hasText: code });
   await expect(row).toContainText(url);
   await expect(row.getByRole("cell").last()).toHaveText("20");
-  await expect(top.getByRole("row").nth(1)).toContainText(code); // row 0 is the header
+  // Other browsers' runs share the database, so check the order instead of a fixed position.
+  const clicks = (await top.getByRole("row").locator("td:last-child").allTextContents()).map(Number);
+  expect(clicks).toEqual([...clicks].sort((a, b) => b - a));
   await expect(top).not.toContainText(email);
   await expect(linksTable(page).getByRole("row").filter({ hasText: code })).toHaveCount(0);
 });
 
+test("anônimo vê só os links criados na página e não pode excluir", async ({ page, request }) => {
+  const other = `https://example.com/someone-else/${Date.now()}`;
+  await request.post("/api/links", { data: { url: other } }); // another anonymous visitor
+  const url = `https://example.com/anon/${Date.now()}`;
+  await page.goto("/");
+  await expect(page.getByText("No links yet")).toBeVisible();
+  await page.getByLabel("Long URL").fill(url);
+  await page.getByRole("button", { name: "Shorten" }).click();
+  const row = linksTable(page).getByRole("row").filter({ hasText: url });
+  await expect(row).toBeVisible();
+  await expect(row.getByRole("button", { name: /^Delete/ })).toHaveCount(0);
+  await expect(page.getByText(other)).toHaveCount(0);
+
+  await page.reload();
+  await expect(page.getByText("No links yet")).toBeVisible();
+  await expect(page.getByText(url)).toHaveCount(0);
+});
+
 test("url repetida mostra o erro do back no toast", async ({ page, request }) => {
+  const { headers } = await loginAs(page, request);
   const url = `https://example.com/dup/${Date.now()}`;
-  await request.post("/api/links", { data: { url } });
+  await request.post("/api/links", { data: { url }, headers });
   await page.goto("/");
   await page.getByLabel("Long URL").fill(url);
   await page.getByRole("button", { name: "Shorten" }).click();
@@ -174,7 +208,9 @@ test("url inválida mostra o erro do back no toast", async ({ page }) => {
 });
 
 test("mobile 390px sem scroll horizontal", async ({ page, request }) => {
-  await request.post("/api/links", { data: { url: `https://example.com/${Date.now()}/${"a".repeat(200)}` } });
+  const { headers } = await loginAs(page, request);
+  const data = { url: `https://example.com/${Date.now()}/${"a".repeat(200)}` };
+  await request.post("/api/links", { data, headers });
   await page.setViewportSize({ width: 390, height: 800 });
   await page.goto("/");
   await expect(linksTable(page)).toBeVisible();
@@ -189,7 +225,7 @@ test("mobile 390px sem scroll horizontal", async ({ page, request }) => {
 test("API fora do ar mostra toast de erro e estado vazio", async ({ page }) => {
   await page.route("**/api/**", (r) => r.abort());
   await page.goto("/");
-  await expect(page.getByText("Could not load links.")).toBeVisible();
+  await expect(page.getByText("Could not load the most clicked links.")).toBeVisible();
   await expect(page.getByText("No links yet")).toBeVisible();
 });
 
@@ -199,6 +235,6 @@ test("sem erros no console no fluxo normal", async ({ page }) => {
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: "Make long links short" })).toBeVisible();
-  await expect(page.getByText(/\d+ shortened/)).toBeVisible();
+  await expect(page.getByText(/stay only while this page is open/)).toBeVisible();
   expect(errors).toEqual([]);
 });

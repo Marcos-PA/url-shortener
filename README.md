@@ -14,9 +14,9 @@ Playwright. Deployed on Vercel (front), Render (back) and Supabase (database).
 | Method | Path          | Description                                                           |
 | ------ | ------------- | --------------------------------------------------------------------- |
 | POST   | `/api/links`  | `{"url": "https://...", "personal_link": "my-promo"}` (`personal_link` optional: 3–16 of `A-Z a-z 0-9 - _`, taken → 409) → 201 with `id`, `url`, `code`, `clicks`, `short_url`. Non-http(s) or malformed URL → 422. URL already shortened → 409. |
-| GET    | `/api/links`  | All links, newest first, with click counts.                           |
+| GET    | `/api/links`  | Your links (login required), newest first, with click counts.         |
 | GET    | `/api/links/top` | Public top 10 most clicked links across everyone (`url`, `code`, `clicks`, `short_url`; no id or owner). Links with 0 clicks are left out. |
-| DELETE | `/api/links/{id}` | 204. The short link stops working. Unknown id → 404 `{"detail": "Link not found"}`. |
+| DELETE | `/api/links/{id}` | Login required; only your own links. 204. The short link stops working. Unknown id → 404 `{"detail": "Link not found"}`. |
 | GET    | `/{code}`     | 302 to the original URL and `clicks + 1`. Unknown code → 404 `{"detail": "Short code not found"}`. |
 | POST   | `/api/auth/register` | `{"email", "password"}` (password ≥ 8 chars) → 201 `{access_token, user}`. E-mail taken → 409. |
 | POST   | `/api/auth/login` | Same body → `{access_token, user}`. Wrong e-mail or password → 401. |
@@ -43,8 +43,18 @@ Checked against the production Postgres: 50 parallel GETs to one short link → 
 
 ## Accounts
 
-Login is optional. Anonymous visitors shorten and see the links without an owner; logged-in users see and
-delete only their own links. Short links themselves are public: anyone with the link is redirected.
+Login is optional, but only logged-in users have a saved list:
+
+- **Logged in:** `GET /api/links` returns your links; you can delete them. They never expire.
+- **Anonymous:** you can shorten, but there is no list (`GET /api/links` → 401). The links you create show up
+  only in the page that created them and disappear on reload. They can't be deleted and **expire 2 hours**
+  after creation (`ANONYMOUS_LINK_TTL_HOURS`).
+- Everyone sees the public top 10 (`GET /api/links/top`), without owners.
+- Short links themselves are public: anyone with the link is redirected (until it expires).
+
+Expired anonymous links stop redirecting (404) and leave the top 10 immediately; the rows are deleted the
+next time anyone creates a link (Render free has no cron). A cron job would be the upgrade if the table grows.
+
 
 - Passwords are hashed with `hashlib.scrypt` and a random salt (stdlib, no extra dependency).
 - The token is `<user_id>.<expires_at>.<HMAC-SHA256 signature>` signed with `SECRET_KEY`, valid for 7 days.

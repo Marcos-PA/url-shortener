@@ -31,8 +31,9 @@ import { createLink, deleteLink, listLinks } from "@/services/linkService";
 import type { Link } from "@/types/link";
 
 export default function Links() {
-  const { user, ready } = useAuth();
-  const [links, setLinks] = useState<Link[] | null>(null);
+  const { user } = useAuth();
+  // Anonymous visitors have no saved list: only the links created in this page, gone on reload.
+  const [links, setLinks] = useState<Link[] | null>(user ? null : []);
   const [url, setUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [created, setCreated] = useState<Link | null>(null);
@@ -41,16 +42,16 @@ export default function Links() {
   const [topVersion, setTopVersion] = useState(0);
   const [showQr, setShowQr] = useState(false);
 
-  // Logged in: your links. Anonymous: links without an owner. (MainLayout remounts this page on login/logout.)
+  // MainLayout mounts this page once the session is known and remounts it on login/logout.
   useEffect(() => {
-    if (!ready) return;
+    if (!user) return;
     listLinks()
       .then(setLinks)
       .catch((err) => {
         setLinks([]);
         toast.error(getErrorMessage(err, "Could not load links."), { id: "load-links" });
       });
-  }, [ready]);
+  }, [user]);
 
   async function shorten(withQr: boolean) {
     setSaving(true);
@@ -117,7 +118,7 @@ export default function Links() {
               ? "Loading..."
               : user
                 ? `Your links · ${links.length} shortened`
-                : `${links.length} shortened · log in to keep track of your own links`}
+                : "Links you create here stay only while this page is open and expire after 2 hours. Log in to keep them."}
           </CardDescription>
         </CardHeader>
 
@@ -248,27 +249,29 @@ export default function Links() {
                       <Button variant="ghost" size="icon" aria-label={`Copy "${l.code}"`} onClick={() => handleCopy(l)}>
                         <CopyIcon />
                       </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" aria-label={`Delete "${l.code}"`}>
-                            <Trash2Icon />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete this link?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              The short link "{l.code}" will stop working and its click count will be lost.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction variant="destructive" onClick={() => handleDelete(l)}>
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      {user && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" aria-label={`Delete "${l.code}"`}>
+                              <Trash2Icon />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete this link?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                The short link "{l.code}" will stop working and its click count will be lost.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction variant="destructive" onClick={() => handleDelete(l)}>
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

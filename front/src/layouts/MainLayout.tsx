@@ -3,6 +3,7 @@ import { Link, Outlet } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Toaster } from "@/components/ui/sonner";
+import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function MainLayout() {
@@ -35,8 +36,15 @@ export default function MainLayout() {
       </header>
       <Separator />
       <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-10">
-        {/* Remount the page on login/logout so it reloads that user's data. */}
-        <Outlet key={user?.id ?? "anonymous"} />
+        {/* Wait for a saved session to be checked (instant without one), so the page never mounts as the
+            wrong user and loses what was typed. Remount it on login/logout so it reloads that user's data. */}
+        {ready ? (
+          <Outlet key={user?.id ?? "anonymous"} />
+        ) : (
+          <div className="flex justify-center py-10" aria-busy="true">
+            <Spinner />
+          </div>
+        )}
       </main>
       <Toaster theme="dark" richColors />
     </div>

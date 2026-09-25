@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.deps import OptionalUser
+from app.api.deps import CurrentUser, OptionalUser
 from app.db.session import DbSession
 from app.schemas.link import LinkCreate, LinkPublic, LinkResponse
 from app.services import links as links_service
@@ -8,9 +8,9 @@ from app.services import links as links_service
 router = APIRouter(prefix="/links", tags=["links"])
 
 
-# Logged in: your links. Anonymous: the links without an owner.
+# Only logged-in users have a list: anonymous links are shown just in the page that created them.
 @router.get("", response_model=list[LinkResponse])
-def list_links(db: DbSession, user: OptionalUser):
+def list_links(db: DbSession, user: CurrentUser):
     return links_service.list_links(db, user)
 
 
@@ -26,5 +26,5 @@ def create_link(db: DbSession, user: OptionalUser, link: LinkCreate):
 
 
 @router.delete("/{link_id}", status_code=204)
-def delete_link(db: DbSession, user: OptionalUser, link_id: int):
+def delete_link(db: DbSession, user: CurrentUser, link_id: int):
     links_service.delete_link(db, link_id, user)
