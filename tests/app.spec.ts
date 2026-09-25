@@ -44,6 +44,16 @@ test("excluir pede confirmação e remove o link", async ({ page, request }) => 
   await expect(linkRow).toHaveCount(0);
 });
 
+test("copiar põe o link curto na área de transferência", async ({ page, context, request, browserName }) => {
+  test.skip(browserName !== "chromium", "permissão de clipboard só no Chromium");
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const { code, short_url } = await (await request.post("/api/links", { data: { url: "https://example.com/copy" } })).json();
+  await page.goto("/");
+  await page.getByRole("button", { name: `Copy "${code}"` }).click();
+  await expect(page.getByText("Short link copied.")).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(short_url);
+});
+
 test("url inválida mostra o erro do back no toast", async ({ page }) => {
   await page.goto("/");
   await page.getByLabel("Long URL").fill("ftp://example.com");

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { ExternalLinkIcon, LinkIcon, Trash2Icon } from "lucide-react";
+import { CopyIcon, ExternalLinkIcon, LinkIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -55,6 +55,15 @@ export default function Links() {
     }
   }
 
+  async function handleCopy(link: Link) {
+    try {
+      await navigator.clipboard.writeText(link.short_url);
+      toast.success("Short link copied.");
+    } catch {
+      toast.error("Could not copy the link.");
+    }
+  }
+
   async function handleDelete(link: Link) {
     try {
       await deleteLink(link.id);
@@ -97,9 +106,20 @@ export default function Links() {
             <LinkIcon />
             <AlertTitle>Your short link</AlertTitle>
             <AlertDescription>
-              <a href={created.short_url} target="_blank" rel="noreferrer" className="font-mono text-primary underline">
-                {created.short_url}
-              </a>
+              <div className="flex items-center gap-2">
+                <a
+                  href={created.short_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="min-w-0 truncate font-mono text-primary underline"
+                >
+                  {created.short_url}
+                </a>
+                <Button variant="outline" size="sm" onClick={() => handleCopy(created)}>
+                  <CopyIcon data-icon="inline-start" />
+                  Copy
+                </Button>
+              </div>
             </AlertDescription>
           </Alert>
         )}
@@ -127,7 +147,7 @@ export default function Links() {
                 <TableHead>Original URL</TableHead>
                 <TableHead>Short link</TableHead>
                 <TableHead className="text-right">Clicks</TableHead>
-                <TableHead className="w-12" />
+                <TableHead className="w-24" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -149,6 +169,9 @@ export default function Links() {
                   </TableCell>
                   <TableCell className="text-right">{l.clicks}</TableCell>
                   <TableCell className="text-right">
+                    <Button variant="ghost" size="icon" aria-label={`Copy "${l.code}"`} onClick={() => handleCopy(l)}>
+                      <CopyIcon />
+                    </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="ghost" size="icon" aria-label={`Delete "${l.code}"`}>
