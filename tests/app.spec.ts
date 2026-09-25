@@ -19,6 +19,7 @@ test("links: encurta, abre o link curto e o clique é contado", async ({ page, c
   const ruler = page.getByRole("figure");
   await expect(ruler).toContainText(`${url.length} chars`);
   await expect(ruler).toContainText(/\d+% shorter/);
+  await expect(page.locator("svg title", { hasText: "QR code for" })).toHaveCount(0);
 
   const [tab] = await Promise.all([context.waitForEvent("page"), shortLink.click()]);
   await expect(tab).toHaveURL(url);
@@ -55,6 +56,16 @@ test("copiar põe o link curto na área de transferência", async ({ page, conte
   await page.getByRole("button", { name: `Copy "${code}"` }).click();
   await expect(page.getByText("Short link copied.")).toBeVisible();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(short_url);
+});
+
+test("opção de QR code mostra o QR do link curto", async ({ page }) => {
+  const url = `https://example.com/qr/${Date.now()}`;
+  await page.goto("/");
+  await page.getByLabel("Long URL").fill(url);
+  await page.getByLabel("Also generate a QR code").check();
+  await page.getByRole("button", { name: "Shorten" }).click();
+  const shortUrl = await page.getByRole("alert").getByRole("link").textContent();
+  await expect(page.locator("svg title")).toHaveText(`QR code for ${shortUrl}`);
 });
 
 test("url repetida mostra o erro do back no toast", async ({ page, request }) => {

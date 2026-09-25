@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { CopyIcon, ExternalLinkIcon, LinkIcon, Trash2Icon } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -14,6 +15,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -31,6 +33,8 @@ export default function Links() {
   const [url, setUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [created, setCreated] = useState<Link | null>(null);
+  const [withQr, setWithQr] = useState(false);
+  const [showQr, setShowQr] = useState(false);
 
   useEffect(() => {
     listLinks()
@@ -48,6 +52,7 @@ export default function Links() {
       const saved = await createLink({ url });
       setLinks((prev) => [saved, ...(prev ?? [])]);
       setCreated(saved);
+      setShowQr(withQr);
       setUrl("");
     } catch (err) {
       toast.error(getErrorMessage(err, "Could not shorten the URL."));
@@ -84,22 +89,30 @@ export default function Links() {
       </CardHeader>
 
       <CardContent className="flex flex-col gap-6">
-        <form onSubmit={handleSubmit} className="flex items-end gap-2">
-          <Field>
-            <FieldLabel htmlFor="link-url">Long URL</FieldLabel>
-            <Input
-              id="link-url"
-              type="url"
-              required
-              placeholder="https://example.com/some/long/path"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-            />
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <div className="flex items-end gap-2">
+            <Field>
+              <FieldLabel htmlFor="link-url">Long URL</FieldLabel>
+              <Input
+                id="link-url"
+                type="url"
+                required
+                placeholder="https://example.com/some/long/path"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+              />
+            </Field>
+            <Button type="submit" disabled={saving || !url.trim()}>
+              {saving && <Spinner data-icon="inline-start" />}
+              Shorten
+            </Button>
+          </div>
+          <Field orientation="horizontal">
+            <Checkbox id="link-qr" checked={withQr} onCheckedChange={(v) => setWithQr(v === true)} />
+            <FieldLabel htmlFor="link-qr" className="font-normal">
+              Also generate a QR code
+            </FieldLabel>
           </Field>
-          <Button type="submit" disabled={saving || !url.trim()}>
-            {saving && <Spinner data-icon="inline-start" />}
-            Shorten
-          </Button>
         </form>
 
         {created && (
@@ -124,6 +137,19 @@ export default function Links() {
               <div className="mt-3 w-full">
                 <UrlRuler original={created.url} short={created.short_url} />
               </div>
+              {showQr && (
+                <div className="mt-4 flex justify-center">
+                  {/* QR codes need dark-on-light to scan reliably: keep the library's black on white. */}
+                  <QRCodeSVG
+                    value={created.short_url}
+                    size={160}
+                    marginSize={2}
+                    level="M"
+                    title={`QR code for ${created.short_url}`}
+                    className="rounded-md"
+                  />
+                </div>
+              )}
             </AlertDescription>
           </Alert>
         )}
