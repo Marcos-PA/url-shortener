@@ -1,0 +1,78 @@
+{
+  "skill_name": "brief",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Tenho 2h pra fazer esse teste técnico, me ajuda a começar. Enunciado:\n\n\"Desenvolva um sistema para uma pequena biblioteca comunitária. Deve ser possível cadastrar livros (título, autor, ano de publicação e ISBN) e membros (nome e e-mail). O bibliotecário registra empréstimos de livros para membros, com data de devolução prevista, e marca a devolução quando o livro volta. Um livro que já está emprestado não pode ser emprestado novamente até ser devolvido. O sistema deve exibir uma lista dos empréstimos atrasados. Publique a aplicação e envie o link.\"",
+      "expected_output": "Plan with livro, membro and emprestimo (fk to both) in the right order, 'book already on loan' rule in the service with a test, overdue as a computed value/screen, assumptions (e.g.: unique ISBN?), steps with commit/push, no code written.",
+      "files": [],
+      "expectations": [
+        "Doesn't write code or change files; ends waiting for the user's confirmation",
+        "Each resource appears as a /new-resource command with typed fields, in fk order (referenced first)",
+        "Each business rule in the brief has a place in the back (service/HTTP status) and an associated pytest test",
+        "Ambiguities appear as assumptions with an explicit default value",
+        "Asks at most 3 blocking questions",
+        "Ordered steps with commit/push, including checking the deploy right at the start",
+        "Estimates time per step, with MVP within ~100 min and extras separate from the MVP",
+        "emprestimo has fk to livro and to membro and comes after both",
+        "The 'book already on loan' rule is validated in the back with a 4xx status and covered by a test",
+        "Overdue loans are computed in the back (due < today and not returned) or in a dedicated screen/filter",
+        "Return is modeled (return date/flag field or a return action)",
+        "Step 0 creates the project repo with /new-project and a kebab-case domain name",
+        "There is an explicit step to connect the new repo's deploy (Supabase/Render/Vercel) with an estimated time",
+        "Removing Task at the end includes updating/replacing Task's E2E tests (tests/app.spec.ts)",
+        "Loan has no free editing (no:edit or equivalent) and return is its own action (POST /{id}/devolver or similar)",
+        "Deleting a book or member with loans returns 409, with a test"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "vou fazer esse case agora, prazo de 2 horas. o que eu faço primeiro?\n\n\"Crie uma aplicação de controle de pedidos para uma loja. Produtos têm nome, preço e quantidade em estoque. Um pedido tem um cliente (nome), uma data e um ou mais itens; cada item é um produto com uma quantidade. O total do pedido deve ser calculado automaticamente. Ao criar um pedido, o estoque dos produtos deve ser reduzido, e não deve ser possível criar um pedido com quantidade maior que o estoque disponível. Diferencial: um dashboard com o total vendido e os produtos mais vendidos.\"",
+      "expected_output": "Plan that identifies order item as a resource/table with two fks or nested creation, estimates the extra cost, puts the stock rule in the service with a transaction and a test, total computed in the back, dashboard as an extra, customer as a field (not a resource), no code written.",
+      "files": [],
+      "expectations": [
+        "Doesn't write code or change files; ends waiting for the user's confirmation",
+        "Each resource appears as a /new-resource command with typed fields, in fk order (referenced first)",
+        "Each business rule in the brief has a place in the back (service/HTTP status) and an associated pytest test",
+        "Ambiguities appear as assumptions with an explicit default value",
+        "Asks at most 3 blocking questions",
+        "Ordered steps with commit/push, including checking the deploy right at the start",
+        "Estimates time per step, with MVP within ~100 min and extras separate from the MVP",
+        "Order item is modeled as its own table with fk to order and product (or nested creation) and the plan says this goes beyond a simple /new-resource",
+        "Stock validation and reduction happen in the back in a single transaction (all or nothing)",
+        "Order total is computed in the back",
+        "Customer is a field on the order (name), not a separate resource",
+        "Dashboard is treated as an extra/differential, outside the MVP",
+        "Step 0 creates the project repo with /new-project and a kebab-case domain name",
+        "There is an explicit step to connect the new repo's deploy (Supabase/Render/Vercel) with an estimated time",
+        "Removing Task at the end includes updating/replacing Task's E2E tests (tests/app.spec.ts)",
+        "Order item is NOT created via /new-resource and has no screen/CRUD of its own: it's a model/schema nested in the order POST",
+        "Order is marked without edit/delete (no:edit,delete or an explicit equivalent) because of stock"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Recebi esse enunciado pra entrevista de amanhã, é bem curto: \"Faça um app de agendamento para uma barbearia. Clientes podem marcar horário com um barbeiro. Tem que ter login.\" Tenho 2h. Como eu faço?",
+      "expected_output": "Plan that recognizes the vague brief, lists assumptions (slot duration, business hours, who logs in), treats login as outside the template with a minimal version and cost, rule against two appointments at the same time/barber in the service with a test, asks at most 3 blocking questions, no code written.",
+      "files": [],
+      "expectations": [
+        "Doesn't write code or change files; ends waiting for the user's confirmation",
+        "Each resource appears as a /new-resource command with typed fields, in fk order (referenced first)",
+        "Each business rule in the brief has a place in the back (service/HTTP status) and an associated pytest test",
+        "Ambiguities appear as assumptions with an explicit default value",
+        "Asks at most 3 blocking questions",
+        "Ordered steps with commit/push, including checking the deploy right at the start",
+        "Estimates time per step, with MVP within ~100 min and extras separate from the MVP",
+        "Login is treated as outside the template, with a proposed minimal version and cost in minutes",
+        "The rule against two appointments for the same barber at the same time is in the back with a test",
+        "There are assumptions about service duration and/or business hours",
+        "Barber is a resource and appointment has fk to barber",
+        "Step 0 creates the project repo with /new-project and a kebab-case domain name",
+        "There is an explicit step to connect the new repo's deploy (Supabase/Render/Vercel) with an estimated time",
+        "Removing Task at the end includes updating/replacing Task's E2E tests (tests/app.spec.ts)",
+        "The login step plans for adapting the existing tests (pytest and/or E2E) that now require a token",
+        "Time slot modeled as time or enum without ':' in the values (compatible with field:type syntax)"
+      ]
+    }
+  ]
+}

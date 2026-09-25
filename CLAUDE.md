@@ -6,7 +6,7 @@ Deploy: front na Vercel, back no Render (render.yaml). Cada `git push` na main f
 ## Prioridade (projeto de 2h)
 - Funcionalidade que o enunciado pede > código bonito. Sem auth, testes extras ou libs novas se não forem pedidos.
 - Faça commit e push a cada feature funcionando, para testar na URL pública cedo.
-- Novo CRUD (entidade/cadastro): use a skill `/novo-recurso <nome> <campo:tipo>...`. Task é o exemplo de referência.
+- Novo CRUD (entidade/cadastro): use a skill `/new-resource <nome> <campo:tipo>...`. Task é o exemplo de referência.
 
 ## Back (back/, FastAPI + uv)
 - Dependências: sempre `uv add <pacote>` (dev: `uv add --dev`). Nunca pip. Commitar o `uv.lock`.
