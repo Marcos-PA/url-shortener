@@ -1,65 +1,108 @@
 # URL Shortener
 
-Feito a partir do [fullstack-template](https://github.com/Marcos-PA/fullstack-template).
+Internal URL shortener (think bit.ly). Paste a long URL, get a short code; opening the short link
+redirects (302) to the original URL and counts the click.
 
-React + Vite + TS + Tailwind + shadcn/ui · FastAPI + SQLAlchemy · Postgres (Supabase) · Playwright.
-Deploy grátis: Vercel (front) + Render (back) + Supabase (banco).
+- App: https://url-shortener-dun-chi.vercel.app
+- API: https://url-shortener-api-7pv8.onrender.com (docs at `/docs`)
 
-## Rodando em dev
+Stack: React + Vite + TS + Tailwind + shadcn/ui · FastAPI + SQLAlchemy 2 + Alembic · Postgres (Supabase) ·
+Playwright. Deployed on Vercel (front), Render (back) and Supabase (database).
 
-    cd back && cp .env.example .env && uv sync && uv run uvicorn app.main:app --reload
+## API
+
+| Method | Path          | Description                                                           |
+| ------ | ------------- | --------------------------------------------------------------------- |
+| POST   | `/api/links`  | `{"url": "https://..."}` → 201 with `id`, `url`, `code`, `clicks`, `short_url`. Non-http(s) or malformed URL → 422. |
+| GET    | `/api/links`  | All links, newest first, with click counts.                           |
+| GET    | `/{code}`     | 302 to the original URL and `clicks + 1`. Unknown code → 404 `{"detail": "Short code not found"}`. |
+| GET    | `/api/health` | API and database status.                                              |
+
+The redirect lives outside `/api` so short links stay short (`https://<api>/<code>`). They point to the
+back end, not to Vercel: the front's SPA rewrite would send every path to `index.html`.
+
+## How the click counter stays correct under concurrency
+
+The redirect runs a single statement:
+
+```sql
+UPDATE links SET clicks = clicks + 1 WHERE code = :code RETURNING url
+```
+
+The increment happens inside the database, which takes a row lock for the update, so concurrent requests
+are serialized per row and none are lost. A read-modify-write in Python (`link.clicks += 1`) would let two
+requests read the same value and both write `n + 1`. The same statement also returns the target URL, so
+there is one round trip and no window between "find" and "count".
+
+Checked against the production Postgres: 50 parallel GETs to one short link → 50 × 302 and `clicks == 50`.
+
+## How short codes are generated
+
+7 random base62 characters from `secrets.choice` (62⁷ ≈ 3.5 trillion codes). Uniqueness is enforced by a
+`UNIQUE` constraint on `code`: on a collision the insert raises `IntegrityError`, the service rolls back and
+tries a new code (up to 5 times, then 503). There is no "check if it exists, then insert", which would race.
+
+## Project structure
+
+```
+back/app/
+  api/routes/link.py      POST/GET /api/links (thin, calls the service)
+  api/routes/redirect.py  GET /{code}
+  services/links.py       code generation + retry, atomic click count
+  schemas/link.py         Pydantic in/out (HttpUrl validation, computed short_url)
+  models/link.py          SQLAlchemy model
+back/migrations/          Alembic
+front/src/pages/Links.tsx single page: form + table
+```
+
+## Running locally
+
+Requirements: Python 3.13 + [uv](https://docs.astral.sh/uv/), Node 20+.
+
+    cd back && cp .env.example .env && uv sync && uv run alembic upgrade head && uv run uvicorn app.main:app --reload
     cd front && npm install && npm run dev
 
-Dev usa SQLite (`back/app.db`), sem precisar de Postgres. O front chama `/api/*` e o Vite repassa ao back.
+Open http://localhost:5173. Dev uses SQLite (`back/app.db`), no Postgres needed; the Vite dev server proxies
+`/api/*` to the back end on :8000. Short links point to `PUBLIC_BASE_URL` (`http://localhost:8000` in dev).
 
-## Testes
+Environment variables (`back/.env`, and the Render dashboard in production):
 
-    cd back && uv run ruff check . && uv run pytest     # API
-    npm install && npx playwright install               # 1ª vez, na raiz
-    npm run test:e2e                                    # E2E em Chromium, Firefox e WebKit
+| Variable          | Example                                             |
+| ----------------- | --------------------------------------------------- |
+| `DATABASE_URL`    | `sqlite:///./app.db` or the Supabase session pooler URL |
+| `CORS_ORIGINS`    | `["http://localhost:5173"]`                         |
+| `PUBLIC_BASE_URL` | `https://url-shortener-api-7pv8.onrender.com`       |
 
-O E2E sobe sua própria stack (back :8001 com SQLite descartável, front :5174): não mexe no
-banco de dev nem no Supabase, e pode rodar com o dev ligado. Relatório: `npx playwright show-report`.
+Front (Vercel): `VITE_API_URL` = `<API URL>/api`.
 
-## Criando um recurso novo (Claude Code)
+## Database migrations
 
-    /novo-recurso produto nome:str preco:float categoria:enum(alimento|limpeza) ativo:bool
+    cd back
+    uv run alembic revision --autogenerate -m "describe the change"
+    uv run alembic upgrade head
 
-Gera model, schema, service, rota e teste no back, e tipo, service e página (shadcn) no front,
-seguindo o `CLAUDE.md`. Tipos: `str text int float bool date time datetime email enum(a|b) fk:<alvo>`;
-`campo?` opcional, `campo!` único, `campo=` preenchido pelo back, `sem:editar,excluir` para registros
-que não mudam depois de criados. Detalhes e código de referência em `.claude/skills/novo-recurso/`.
+Render runs `alembic upgrade head` before starting the server (see `render.yaml`).
 
-## Front: UI
+## Tests
 
-Componentes [shadcn/ui](https://ui.shadcn.com) em `front/src/components/ui` (já instalados: button, card,
-input, input-group, field, checkbox, select, dialog, alert-dialog, table, tabs, dropdown-menu, calendar,
-popover, pagination, badge, alert, skeleton, empty, sonner, spinner, toggle-group...).
-Faltou um: `cd front && npx shadcn@latest add <nome>`.
-Erros da API viram toast com a mensagem do back: `toast.error(getErrorMessage(err, "fallback"))`.
+    cd back && uv run ruff check . && uv run pytest   # API: validation, code format/uniqueness, retry, redirect + count, 404
+    npm install && npx playwright install            # first time, at the repo root
+    npm run test:e2e                                 # E2E in Chromium, Firefox and WebKit
 
-## Deploy (primeira vez, ~15 min)
+The E2E suite starts its own stack (back on :8001 with a throwaway SQLite, front on :5174) and covers:
+shorten a URL → it appears in the table → open the short link → the click is counted.
 
-1. **GitHub**: crie o repo e dê push. (Settings → marque "Template repository" para reusar.)
-2. **Supabase**: New project (região perto de você). Botão **Connect** → copie a URL do
-   **Session pooler** (porta 5432). Não use a "Direct connection": ela é só IPv6 e o Render não conecta.
-   Senha com caracteres especiais (`@`, `#`, `/`...) precisa estar URL-encoded.
-3. **Render**: New → Blueprint → escolha o repo (ele lê o `render.yaml`).
-   - `DATABASE_URL` = URL do Supabase.
-   - `CORS_ORIGINS` = `["http://localhost:5173"]` por enquanto.
-   - Teste: `https://<seu-app>.onrender.com/api/health` → `{"status":"ok","database":"ok"}`.
-4. **Vercel**: Add New → Project → repo → **Root Directory = `front`**.
-   - Env var `VITE_API_URL` = `https://<seu-app>.onrender.com/api`.
-5. **Volte ao Render** e troque `CORS_ORIGINS` para `["https://<seu-app>.vercel.app"]`
-   (sem barra no final). Ele reinicia sozinho.
-6. Abra a URL da Vercel → Home mostra "API: ok · Banco: ok" → /tasks salva e lista.
+## Assumptions
 
-Depois disso: `git push` na main = deploy automático dos dois.
+- The same URL submitted twice gets two different codes (no dedup).
+- Codes are always random (no custom aliases).
+- Links cannot be edited or deleted.
+- URLs are stored as normalized by Pydantic's `HttpUrl` (e.g. `https://example.com` → `https://example.com/`).
+- The pytest click test is sequential; the concurrency guarantee comes from the atomic `UPDATE` above and
+  was checked manually against Postgres (SQLite in tests serializes writes anyway).
+- No authentication: it is an internal tool.
 
-## Pegadinhas
+## Gotchas
 
-- **Render free dorme após ~15 min.** A 1ª requisição leva ~1 min. Abra `/api/health` antes de apresentar.
-- **Supabase free pausa após ~1 semana sem uso.** Reative no painel antes do dia do projeto.
-- Mudou `VITE_API_URL` na Vercel? Precisa **Redeploy** (é lida no build).
-- Erro de CORS no console do navegador = `CORS_ORIGINS` no Render não bate exatamente com a URL da Vercel.
-- Mudou colunas de um model que já existe → apague a tabela no Supabase e reinicie o back (`create_all` não altera tabelas).
+- Render's free tier sleeps after ~15 min idle; the first request takes ~1 min.
+- Supabase's free tier pauses after ~1 week without use.
