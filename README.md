@@ -93,6 +93,12 @@ Render runs `alembic upgrade head` before starting the server (see `render.yaml`
 The E2E suite starts its own stack (back on :8001 with a throwaway SQLite, front on :5174) and covers:
 shorten a URL → it appears in the table → open the short link → the click is counted.
 
+## CI
+
+`.github/workflows/ci.yml` runs on every push to `main` and on pull requests: back (ruff + pytest), front
+(lint + build) and E2E (Playwright, Chromium). Render is set to `autoDeployTrigger: checksPass`, so a commit
+that breaks CI is never deployed to the API.
+
 ## Assumptions
 
 - Each URL can be shortened only once: a second POST gets 409 (enforced by a unique index on `url`, so

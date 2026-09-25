@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  back:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: back
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          working-directory: back
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run pytest
+
+  front:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: front
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: front/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          working-directory: back
+          enable-cache: true
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            front/package-lock.json
+      - run: cd back && uv sync --frozen
+      - run: npm ci && npm ci --prefix front
+      - run: npx playwright install --with-deps chromium
+      # Chromium only to keep CI fast; `npm run test:e2e` locally runs all 3 browsers.
+      - run: npx playwright test --project=chromium
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
