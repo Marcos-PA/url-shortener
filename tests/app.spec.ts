@@ -198,6 +198,7 @@ test("sem erros no console no fluxo normal", async ({ page }) => {
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1, name: "Make long links short" })).toBeVisible();
   await expect(page.getByText(/\d+ shortened/)).toBeVisible();
   expect(errors).toEqual([]);
 });
