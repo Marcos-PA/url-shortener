@@ -6,4 +6,6 @@ export interface Link {
   short_url: string;
 }
 
-export type LinkInput = Omit<Link, "id" | "code" | "clicks" | "short_url">;
+export type LinkInput = Omit<Link, "id" | "code" | "clicks" | "short_url"> & {
+  personal_link: string | null;
+};

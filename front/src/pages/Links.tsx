@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { CopyIcon, ExternalLinkIcon, LinkIcon, Trash2Icon } from "lucide-react";
+import { CopyIcon, ExternalLinkIcon, LinkIcon, QrCodeIcon, Trash2Icon, WandSparklesIcon } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -15,11 +15,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import UrlRuler from "@/components/UrlRuler";
@@ -33,7 +33,7 @@ export default function Links() {
   const [url, setUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [created, setCreated] = useState<Link | null>(null);
-  const [withQr, setWithQr] = useState(false);
+  const [personalLink, setPersonalLink] = useState("");
   const [showQr, setShowQr] = useState(false);
 
   useEffect(() => {
@@ -45,20 +45,31 @@ export default function Links() {
       });
   }, []);
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function shorten(withQr: boolean) {
     setSaving(true);
     try {
-      const saved = await createLink({ url });
+      const saved = await createLink({ url, personal_link: personalLink.trim() || null });
       setLinks((prev) => [saved, ...(prev ?? [])]);
       setCreated(saved);
       setShowQr(withQr);
       setUrl("");
+      setPersonalLink("");
     } catch (err) {
       toast.error(getErrorMessage(err, "Could not shorten the URL."));
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    shorten(false);
+  }
+
+  // QR without clicking Shorten first: shortens the typed URL, or shows the QR of the last short link.
+  function handleQr() {
+    if (url.trim()) shorten(true);
+    else setShowQr(true);
   }
 
   async function handleCopy(link: Link) {
@@ -107,12 +118,25 @@ export default function Links() {
               Shorten
             </Button>
           </div>
-          <Field orientation="horizontal">
-            <Checkbox id="link-qr" checked={withQr} onCheckedChange={(v) => setWithQr(v === true)} />
-            <FieldLabel htmlFor="link-qr" className="font-normal">
-              Also generate a QR code
-            </FieldLabel>
-          </Field>
+          <div className="flex gap-2">
+            <InputGroup>
+              <InputGroupAddon>
+                <WandSparklesIcon aria-hidden />
+              </InputGroupAddon>
+              <InputGroupInput
+                aria-label="Personal link (optional)"
+                placeholder="personal-link (optional)"
+                pattern="[A-Za-z0-9_\-]{3,16}"
+                title="3 to 16 letters, numbers, - or _"
+                value={personalLink}
+                onChange={(e) => setPersonalLink(e.target.value)}
+              />
+            </InputGroup>
+            <Button type="button" variant="outline" disabled={saving || (!url.trim() && !created)} onClick={handleQr}>
+              <QrCodeIcon data-icon="inline-start" />
+              QR code
+            </Button>
+          </div>
         </form>
 
         {created && (

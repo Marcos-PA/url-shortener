@@ -58,14 +58,41 @@ test("copiar põe o link curto na área de transferência", async ({ page, conte
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(short_url);
 });
 
-test("opção de QR code mostra o QR do link curto", async ({ page }) => {
+test("botão QR code encurta e mostra o QR sem clicar em Shorten", async ({ page }) => {
   const url = `https://example.com/qr/${Date.now()}`;
   await page.goto("/");
   await page.getByLabel("Long URL").fill(url);
-  await page.getByLabel("Also generate a QR code").check();
-  await page.getByRole("button", { name: "Shorten" }).click();
+  await page.getByRole("button", { name: "QR code" }).click();
+  await expect(page.getByRole("row").filter({ hasText: url })).toBeVisible();
   const shortUrl = await page.getByRole("alert").getByRole("link").textContent();
   await expect(page.locator("svg title")).toHaveText(`QR code for ${shortUrl}`);
+});
+
+test("botão QR code depois de encurtar mostra o QR do último link", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "QR code" })).toBeDisabled();
+  await page.getByLabel("Long URL").fill(`https://example.com/qr-after/${Date.now()}`);
+  await page.getByRole("button", { name: "Shorten" }).click();
+  await expect(page.getByRole("figure")).toBeVisible();
+  await expect(page.locator("svg title")).toHaveCount(0);
+  await page.getByRole("button", { name: "QR code" }).click();
+  const shortUrl = await page.getByRole("alert").getByRole("link").textContent();
+  await expect(page.locator("svg title")).toHaveText(`QR code for ${shortUrl}`);
+});
+
+test("link personalizado usa o nome escolhido e recusa nome repetido", async ({ page }) => {
+  const alias = `p${Date.now() % 1e9}`;
+  await page.goto("/");
+  await page.getByLabel("Long URL").fill(`https://example.com/personal/${alias}`);
+  await page.getByLabel("Personal link (optional)").fill(alias);
+  await page.getByRole("button", { name: "Shorten" }).click();
+  await expect(page.getByRole("alert").getByRole("link")).toHaveText(new RegExp(`/${alias}$`));
+  await expect(page.getByLabel("Personal link (optional)")).toHaveValue("");
+
+  await page.getByLabel("Long URL").fill(`https://example.com/personal/${alias}/2`);
+  await page.getByLabel("Personal link (optional)").fill(alias);
+  await page.getByRole("button", { name: "Shorten" }).click();
+  await expect(page.getByText("This personal link is already taken")).toBeVisible();
 });
 
 test("url repetida mostra o erro do back no toast", async ({ page, request }) => {

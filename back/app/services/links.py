@@ -23,22 +23,33 @@ def _ensure_url_is_new(db: Session, url: str) -> None:
         raise HTTPException(status_code=409, detail="This URL has already been shortened")
 
 
+def _insert(db: Session, url: str, code: str) -> Link | None:
+    """Insert the link; None if the code is already taken (409 if it was the URL instead)."""
+    link = Link(url=url, code=code, clicks=0)
+    db.add(link)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        _ensure_url_is_new(db, url)  # lost the race to the same URL; otherwise the code was taken
+        return None
+    db.refresh(link)
+    return link
+
+
 # Uniqueness of code and url comes from UNIQUE constraints: the pre-check below only gives a friendly
-# 409; two simultaneous requests for the same URL are still caught by the constraint.
+# 409; two simultaneous requests for the same URL or code are still caught by the constraint.
 def create_link(db: Session, data: LinkCreate) -> Link:
     url = str(data.url)
     _ensure_url_is_new(db, url)
-    for _ in range(MAX_ATTEMPTS):
-        link = Link(url=url, code=generate_code(), clicks=0)
-        db.add(link)
-        try:
-            db.commit()
-        except IntegrityError:
-            db.rollback()
-            _ensure_url_is_new(db, url)  # lost the race to the same URL; otherwise it was a code collision
-            continue
-        db.refresh(link)
+    if data.personal_link:
+        link = _insert(db, url, data.personal_link)
+        if link is None:
+            raise HTTPException(status_code=409, detail="This personal link is already taken")
         return link
+    for _ in range(MAX_ATTEMPTS):
+        if link := _insert(db, url, generate_code()):
+            return link
     raise HTTPException(status_code=503, detail="Could not generate a unique short code, try again")
 
 

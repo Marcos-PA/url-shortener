@@ -104,3 +104,24 @@ def test_duplicate_url_race_hits_unique_constraint(monkeypatch):
 
         monkeypatch.setattr(links_service, "_ensure_url_is_new", racy_check)
         assert client.post("/api/links", json={"url": "https://example.com/race"}).status_code == 409
+
+
+def test_personal_link():
+    with TestClient(app) as client:
+        created = client.post("/api/links", json={"url": "https://example.com/promo", "personal_link": "my-promo"})
+        assert created.status_code == 201
+        assert created.json()["code"] == "my-promo"
+        assert created.json()["short_url"].endswith("/my-promo")
+        r = client.get("/my-promo", follow_redirects=False)
+        assert r.status_code == 302 and r.headers["location"] == "https://example.com/promo"
+
+        taken = client.post("/api/links", json={"url": "https://example.com/other", "personal_link": "my-promo"})
+        assert taken.status_code == 409 and taken.json() == {"detail": "This personal link is already taken"}
+
+        for bad in ["ab", "has space", "a/b", "x" * 17, "docs", "API"]:
+            body = {"url": "https://example.com/bad", "personal_link": bad}
+            assert client.post("/api/links", json=body).status_code == 422, bad
+
+        # empty/None falls back to a random code
+        random = client.post("/api/links", json={"url": "https://example.com/rand", "personal_link": None})
+        assert random.status_code == 201 and len(random.json()["code"]) == 7
