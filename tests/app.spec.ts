@@ -103,7 +103,7 @@ test("erro da API mostra a mensagem do back no toast", async ({ page, request })
 
 test("mobile 390px sem scroll horizontal", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 800 });
-  for (const path of ["/", "/tasks"]) {
+  for (const path of ["/", "/tasks", "/links"]) {
     await page.goto(path);
     await expect(page.getByRole("main")).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0);
@@ -134,4 +134,15 @@ test("sem erros no console no fluxo normal", async ({ page }) => {
   await page.getByRole("navigation").getByRole("link", { name: "Tasks" }).click();
   await expect(page.getByText(/de \d+ concluídas/)).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+test("links: encurta uma URL e ela aparece na tabela", async ({ page }) => {
+  const url = `https://example.com/e2e/${Date.now()}`;
+  await page.goto("/links");
+  await page.getByLabel("Long URL").fill(url);
+  await page.getByRole("button", { name: "Shorten" }).click();
+  const linkRow = page.getByRole("row").filter({ hasText: url });
+  await expect(linkRow).toBeVisible();
+  await expect(linkRow.getByRole("cell").nth(1)).toHaveText(/^[A-Za-z0-9]{7}$/);
+  await expect(page.getByLabel("Long URL")).toHaveValue("");
 });

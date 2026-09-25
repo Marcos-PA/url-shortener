@@ -38,3 +38,19 @@ def test_update_and_delete_task():
         assert client.delete(f"/api/tasks/{task_id}").status_code == 204
         assert client.delete(f"/api/tasks/{task_id}").status_code == 404
         assert client.patch(f"/api/tasks/{task_id}", json={"done": True}).status_code == 404
+
+
+def test_link_create_and_list():
+    with TestClient(app) as client:
+        created = client.post("/api/links", json={"url": "https://example.com/some/long/path"})
+        assert created.status_code == 201
+        link = created.json()
+        assert link["clicks"] == 0
+        assert len(link["code"]) == 7 and link["code"].isalnum()
+        assert any(x["id"] == link["id"] for x in client.get("/api/links").json())
+
+        other = client.post("/api/links", json={"url": "https://example.com/some/long/path"}).json()
+        assert other["code"] != link["code"]
+
+        for bad in ["ftp://x", "abc", ""]:
+            assert client.post("/api/links", json={"url": bad}).status_code == 422

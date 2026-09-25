@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import MainLayout from "./layouts/MainLayout";
 import Home from "./pages/Home";
+import Links from "./pages/Links";
 import Tasks from "./pages/Tasks";
 
 export default function App() {
@@ -10,6 +11,7 @@ export default function App() {
         <Route element={<MainLayout />}>
           <Route path="/" element={<Home />} />
           <Route path="/tasks" element={<Tasks />} />
+          <Route path="/links" element={<Links />} />
         </Route>
       </Routes>
     </BrowserRouter>

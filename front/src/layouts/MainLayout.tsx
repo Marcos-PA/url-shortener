@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/sonner";
 const links = [
   { to: "/", label: "Início" },
   { to: "/tasks", label: "Tasks" },
+  { to: "/links", label: "Links" },
 ];
 
 export default function MainLayout() {
