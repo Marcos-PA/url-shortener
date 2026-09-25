@@ -10,8 +10,9 @@ export default function UrlRuler({ original, short }: { original: string; short:
   const pct = (n: number) => `${(n / scale) * 100}%`;
 
   const bars = [
-    { label: "Original", length: original.length, color: "bg-muted-foreground" },
-    { label: "Short", length: short.length, color: "bg-primary" },
+    // Long = warm (amber → red), short = cool (blue → green).
+    { label: "Original", length: original.length, bar: "from-chart-3 via-chart-4 to-chart-5", text: "text-chart-4" },
+    { label: "Short", length: short.length, bar: "from-chart-1 to-chart-2", text: "text-chart-2" },
   ];
 
   return (
@@ -20,10 +21,16 @@ export default function UrlRuler({ original, short }: { original: string; short:
         <div key={b.label} className="flex flex-col gap-1">
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>{b.label}</span>
-            <span className="font-mono">{b.length} chars</span>
+            <span className={`font-mono font-medium ${b.text}`}>{b.length} chars</span>
           </div>
-          <div className="h-2 rounded-full bg-muted">
-            <div className={`h-full rounded-full ${b.color}`} style={{ width: pct(b.length) }} />
+          <div className="relative h-2.5 rounded-full bg-muted">
+            <div className={`h-full rounded-full bg-linear-to-r ${b.bar}`} style={{ width: pct(b.length) }} />
+            {b.label === "Short" && saved > 0 && (
+              <div
+                className="absolute inset-y-0 rounded-r-full border border-dashed border-chart-2/60 bg-chart-2/15"
+                style={{ left: pct(short.length), width: pct(original.length - short.length) }}
+              />
+            )}
           </div>
         </div>
       ))}
@@ -41,8 +48,10 @@ export default function UrlRuler({ original, short }: { original: string; short:
         ))}
       </div>
 
-      <figcaption className="text-xs text-muted-foreground">
-        {saved >= 0 ? `${saved}% shorter` : `${-saved}% longer: this URL was already short`}
+      <figcaption className={`text-xs font-medium ${saved >= 0 ? "text-chart-2" : "text-chart-5"}`}>
+        {saved >= 0
+          ? `${saved}% shorter · ${original.length - short.length} chars saved`
+          : `${-saved}% longer: this URL was already short`}
       </figcaption>
     </figure>
   );
