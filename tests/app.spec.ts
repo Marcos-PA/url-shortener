@@ -47,11 +47,21 @@ test("excluir pede confirmação e remove o link", async ({ page, request }) => 
 test("copiar põe o link curto na área de transferência", async ({ page, context, request, browserName }) => {
   test.skip(browserName !== "chromium", "permissão de clipboard só no Chromium");
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  const { code, short_url } = await (await request.post("/api/links", { data: { url: "https://example.com/copy" } })).json();
+  const { code, short_url } = await (await request.post("/api/links", { data: { url: `https://example.com/copy/${Date.now()}` } })).json();
   await page.goto("/");
   await page.getByRole("button", { name: `Copy "${code}"` }).click();
   await expect(page.getByText("Short link copied.")).toBeVisible();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(short_url);
+});
+
+test("url repetida mostra o erro do back no toast", async ({ page, request }) => {
+  const url = `https://example.com/dup/${Date.now()}`;
+  await request.post("/api/links", { data: { url } });
+  await page.goto("/");
+  await page.getByLabel("Long URL").fill(url);
+  await page.getByRole("button", { name: "Shorten" }).click();
+  await expect(page.getByText("This URL has already been shortened")).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: url })).toHaveCount(1);
 });
 
 test("url inválida mostra o erro do back no toast", async ({ page }) => {
@@ -62,7 +72,7 @@ test("url inválida mostra o erro do back no toast", async ({ page }) => {
 });
 
 test("mobile 390px sem scroll horizontal", async ({ page, request }) => {
-  await request.post("/api/links", { data: { url: `https://example.com/${"a".repeat(200)}` } });
+  await request.post("/api/links", { data: { url: `https://example.com/${Date.now()}/${"a".repeat(200)}` } });
   await page.setViewportSize({ width: 390, height: 800 });
   await page.goto("/");
   await expect(page.getByRole("table")).toBeVisible();

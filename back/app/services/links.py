@@ -18,15 +18,24 @@ def generate_code() -> str:
     return "".join(secrets.choice(ALPHABET) for _ in range(CODE_LENGTH))
 
 
-# Uniqueness comes from the UNIQUE constraint: a check-then-insert would race between two requests.
+def _ensure_url_is_new(db: Session, url: str) -> None:
+    if db.scalar(select(Link.id).where(Link.url == url)) is not None:
+        raise HTTPException(status_code=409, detail="This URL has already been shortened")
+
+
+# Uniqueness of code and url comes from UNIQUE constraints: the pre-check below only gives a friendly
+# 409; two simultaneous requests for the same URL are still caught by the constraint.
 def create_link(db: Session, data: LinkCreate) -> Link:
+    url = str(data.url)
+    _ensure_url_is_new(db, url)
     for _ in range(MAX_ATTEMPTS):
-        link = Link(url=str(data.url), code=generate_code(), clicks=0)
+        link = Link(url=url, code=generate_code(), clicks=0)
         db.add(link)
         try:
             db.commit()
         except IntegrityError:
             db.rollback()
+            _ensure_url_is_new(db, url)  # lost the race to the same URL; otherwise it was a code collision
             continue
         db.refresh(link)
         return link

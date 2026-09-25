@@ -35,7 +35,11 @@ def test_link_create_and_list():
         assert len(link["code"]) == 7 and link["code"].isalnum()
         assert any(x["id"] == link["id"] for x in client.get("/api/links").json())
 
-        other = client.post("/api/links", json={"url": "https://example.com/some/long/path"}).json()
+        duplicate = client.post("/api/links", json={"url": "https://example.com/some/long/path"})
+        assert duplicate.status_code == 409
+        assert duplicate.json() == {"detail": "This URL has already been shortened"}
+
+        other = client.post("/api/links", json={"url": "https://example.com/another/path"}).json()
         assert other["code"] != link["code"]
 
         for bad in ["ftp://x", "abc", ""]:
@@ -82,3 +86,21 @@ def test_delete_link():
         assert client.get(f"/{link['code']}", follow_redirects=False).status_code == 404
         missing = client.delete(f"/api/links/{link['id']}")
         assert missing.status_code == 404 and missing.json() == {"detail": "Link not found"}
+
+
+def test_duplicate_url_race_hits_unique_constraint(monkeypatch):
+    from app.services import links as links_service
+
+    with TestClient(app) as client:
+        client.post("/api/links", json={"url": "https://example.com/race"})
+        real_check = links_service._ensure_url_is_new
+        calls = []
+
+        # First check misses the existing row, as if another request inserted it right after.
+        def racy_check(db, url):
+            calls.append(url)
+            if len(calls) > 1:
+                real_check(db, url)
+
+        monkeypatch.setattr(links_service, "_ensure_url_is_new", racy_check)
+        assert client.post("/api/links", json={"url": "https://example.com/race"}).status_code == 409

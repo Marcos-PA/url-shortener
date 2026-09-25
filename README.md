@@ -13,7 +13,7 @@ Playwright. Deployed on Vercel (front), Render (back) and Supabase (database).
 
 | Method | Path          | Description                                                           |
 | ------ | ------------- | --------------------------------------------------------------------- |
-| POST   | `/api/links`  | `{"url": "https://..."}` → 201 with `id`, `url`, `code`, `clicks`, `short_url`. Non-http(s) or malformed URL → 422. |
+| POST   | `/api/links`  | `{"url": "https://..."}` → 201 with `id`, `url`, `code`, `clicks`, `short_url`. Non-http(s) or malformed URL → 422. URL already shortened → 409. |
 | GET    | `/api/links`  | All links, newest first, with click counts.                           |
 | DELETE | `/api/links/{id}` | 204. The short link stops working. Unknown id → 404 `{"detail": "Link not found"}`. |
 | GET    | `/{code}`     | 302 to the original URL and `clicks + 1`. Unknown code → 404 `{"detail": "Short code not found"}`. |
@@ -95,7 +95,8 @@ shorten a URL → it appears in the table → open the short link → the click 
 
 ## Assumptions
 
-- The same URL submitted twice gets two different codes (no dedup).
+- Each URL can be shortened only once: a second POST gets 409 (enforced by a unique index on `url`, so
+  two simultaneous requests can't both get through).
 - Codes are always random (no custom aliases).
 - Links can be deleted (with a confirmation dialog) but not edited.
 - URLs are stored as normalized by Pydantic's `HttpUrl` (e.g. `https://example.com` → `https://example.com/`).
