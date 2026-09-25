@@ -63,6 +63,15 @@ def list_links(db: Session, owner: User | None) -> list[Link]:
     return list(db.scalars(select(Link).where(_owned_by(owner)).order_by(Link.id.desc())))
 
 
+TOP_LIMIT = 10
+
+
+# Across every owner, most clicked first; ties go to the oldest link. Links never clicked are left out.
+def list_top_links(db: Session) -> list[Link]:
+    query = select(Link).where(Link.clicks > 0).order_by(Link.clicks.desc(), Link.id).limit(TOP_LIMIT)
+    return list(db.scalars(query))
+
+
 # Someone else's link is "not found": don't reveal which ids exist.
 def get_link(db: Session, link_id: int, owner: User | None) -> Link:
     link = db.scalar(select(Link).where(Link.id == link_id, _owned_by(owner)))

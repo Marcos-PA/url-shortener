@@ -2,7 +2,7 @@ from fastapi import APIRouter
 
 from app.api.deps import OptionalUser
 from app.db.session import DbSession
-from app.schemas.link import LinkCreate, LinkResponse
+from app.schemas.link import LinkCreate, LinkPublic, LinkResponse
 from app.services import links as links_service
 
 router = APIRouter(prefix="/links", tags=["links"])
@@ -12,6 +12,12 @@ router = APIRouter(prefix="/links", tags=["links"])
 @router.get("", response_model=list[LinkResponse])
 def list_links(db: DbSession, user: OptionalUser):
     return links_service.list_links(db, user)
+
+
+# Public ranking: only the link itself, never who owns it.
+@router.get("/top", response_model=list[LinkPublic])
+def list_top_links(db: DbSession):
+    return links_service.list_top_links(db)
 
 
 @router.post("", response_model=LinkResponse, status_code=201)

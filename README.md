@@ -15,6 +15,7 @@ Playwright. Deployed on Vercel (front), Render (back) and Supabase (database).
 | ------ | ------------- | --------------------------------------------------------------------- |
 | POST   | `/api/links`  | `{"url": "https://...", "personal_link": "my-promo"}` (`personal_link` optional: 3–16 of `A-Z a-z 0-9 - _`, taken → 409) → 201 with `id`, `url`, `code`, `clicks`, `short_url`. Non-http(s) or malformed URL → 422. URL already shortened → 409. |
 | GET    | `/api/links`  | All links, newest first, with click counts.                           |
+| GET    | `/api/links/top` | Public top 10 most clicked links across everyone (`url`, `code`, `clicks`, `short_url`; no id or owner). Links with 0 clicks are left out. |
 | DELETE | `/api/links/{id}` | 204. The short link stops working. Unknown id → 404 `{"detail": "Link not found"}`. |
 | GET    | `/{code}`     | 302 to the original URL and `clicks + 1`. Unknown code → 404 `{"detail": "Short code not found"}`. |
 | POST   | `/api/auth/register` | `{"email", "password"}` (password ≥ 8 chars) → 201 `{access_token, user}`. E-mail taken → 409. |

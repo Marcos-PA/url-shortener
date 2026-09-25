@@ -19,8 +19,8 @@ class LinkCreate(BaseModel):
         return value
 
 
-class LinkResponse(BaseModel):
-    id: int
+# Public view of a link: no id and no owner (used by the top-10 ranking).
+class LinkPublic(BaseModel):
     url: str
     code: str
     clicks: int
@@ -30,3 +30,7 @@ class LinkResponse(BaseModel):
     @property
     def short_url(self) -> str:
         return f"{settings.PUBLIC_BASE_URL.rstrip('/')}/{self.code}"
+
+
+class LinkResponse(LinkPublic):
+    id: int

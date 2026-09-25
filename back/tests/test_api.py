@@ -199,3 +199,24 @@ def test_links_are_scoped_to_their_owner():
         assert client.delete(f"/api/links/{mine.json()['id']}", headers=bob).status_code == 404
         assert client.delete(f"/api/links/{mine.json()['id']}").status_code == 404
         assert client.delete(f"/api/links/{mine.json()['id']}", headers=alice).status_code == 204
+
+
+def test_top_links_are_public_and_ranked():
+    with TestClient(app) as client:
+        _, alice = _register(client)
+        tag = uuid.uuid4().hex[:8]
+        popular = client.post("/api/links", json={"url": f"https://example.com/top/{tag}/a"}, headers=alice).json()
+        second = client.post("/api/links", json={"url": f"https://example.com/top/{tag}/b"}).json()
+        never = client.post("/api/links", json={"url": f"https://example.com/top/{tag}/c"}).json()
+        for _ in range(6):  # other tests click a link at most 3 times
+            client.get(f"/{popular['code']}", follow_redirects=False)
+        for _ in range(5):
+            client.get(f"/{second['code']}", follow_redirects=False)
+
+        top = client.get("/api/links/top").json()  # anonymous, yet includes alice's link
+        assert [x["code"] for x in top[:2]] == [popular["code"], second["code"]]
+        assert top[0] == {
+            "url": popular["url"], "code": popular["code"], "clicks": 6, "short_url": popular["short_url"],
+        }
+        assert never["code"] not in [x["code"] for x in top]
+        assert len(top) <= 10

@@ -1,6 +1,9 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 // Banco SQLite descartável (ver webServer no playwright.config.ts), recriado a cada execução.
+
+// The page has two tables (your links and the most clicked ranking): rows of the first one.
+const linksTable = (page: Page) => page.getByRole("table", { name: "Your links" });
 
 test("links: encurta, abre o link curto e o clique é contado", async ({ page, context }) => {
   const url = `https://example.com/e2e/${Date.now()}`;
@@ -10,7 +13,7 @@ test("links: encurta, abre o link curto e o clique é contado", async ({ page, c
   await page.getByRole("button", { name: "Shorten" }).click();
   await expect(page.getByLabel("Long URL")).toHaveValue("");
 
-  const linkRow = page.getByRole("row").filter({ hasText: url });
+  const linkRow = linksTable(page).getByRole("row").filter({ hasText: url });
   const shortLink = linkRow.getByRole("link");
   await expect(shortLink).toHaveText(/^[A-Za-z0-9]{7}$/);
   await expect(shortLink).toHaveAttribute("href", /^http:\/\/localhost:8001\/[A-Za-z0-9]{7}$/);
@@ -33,7 +36,7 @@ test("excluir pede confirmação e remove o link", async ({ page, request }) => 
   const url = `https://example.com/delete/${Date.now()}`;
   const { code } = await (await request.post("/api/links", { data: { url } })).json();
   await page.goto("/");
-  const linkRow = page.getByRole("row").filter({ hasText: url });
+  const linkRow = linksTable(page).getByRole("row").filter({ hasText: url });
 
   await page.getByRole("button", { name: `Delete "${code}"` }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Cancel" }).click();
@@ -63,7 +66,7 @@ test("botão QR code encurta e mostra o QR sem clicar em Shorten", async ({ page
   await page.goto("/");
   await page.getByLabel("Long URL").fill(url);
   await page.getByRole("button", { name: "QR code" }).click();
-  await expect(page.getByRole("row").filter({ hasText: url })).toBeVisible();
+  await expect(linksTable(page).getByRole("row").filter({ hasText: url })).toBeVisible();
   const shortUrl = await page.getByRole("alert").getByRole("link").textContent();
   await expect(page.locator("svg title")).toHaveText(`QR code for ${shortUrl}`);
 });
@@ -112,11 +115,11 @@ test("conta: criar, encurtar, sair e entrar de novo mantém os links do usuário
   await expect(page.getByText(/Your links · 0 shortened/)).toBeVisible();
   await page.getByLabel("Long URL").fill(url);
   await page.getByRole("button", { name: "Shorten" }).click();
-  await expect(page.getByRole("row").filter({ hasText: url })).toBeVisible();
+  await expect(linksTable(page).getByRole("row").filter({ hasText: url })).toBeVisible();
 
   await header.getByRole("button", { name: "Log out" }).click();
   await expect(page.getByText(/log in to keep track/)).toBeVisible();
-  await expect(page.getByRole("row").filter({ hasText: url })).toHaveCount(0);
+  await expect(linksTable(page).getByRole("row").filter({ hasText: url })).toHaveCount(0);
 
   await header.getByRole("link", { name: "Log in" }).click();
   await page.getByLabel("E-mail").fill(email);
@@ -127,11 +130,30 @@ test("conta: criar, encurtar, sair e entrar de novo mantém os links do usuário
   await page.getByLabel("Password").fill("s3cret-pass");
   await page.getByRole("main").getByRole("button", { name: "Log in" }).click();
   await expect(page).toHaveURL("/");
-  await expect(page.getByRole("row").filter({ hasText: url })).toBeVisible();
+  await expect(linksTable(page).getByRole("row").filter({ hasText: url })).toBeVisible();
 
   await page.reload();
   await expect(header.getByText(email)).toBeVisible();
-  await expect(page.getByRole("row").filter({ hasText: url })).toBeVisible();
+  await expect(linksTable(page).getByRole("row").filter({ hasText: url })).toBeVisible();
+});
+
+test("tabela 'Most clicked' mostra o ranking sem o dono", async ({ page, request }) => {
+  const email = `top-${Date.now()}@example.com`;
+  const { access_token } = await (await request.post("/api/auth/register", { data: { email, password: "s3cret-pass" } })).json();
+  const url = `https://example.com/top/${Date.now()}`;
+  const { code } = await (
+    await request.post("/api/links", { data: { url }, headers: { Authorization: `Bearer ${access_token}` } })
+  ).json();
+  for (let i = 0; i < 20; i++) await request.get(`http://localhost:8001/${code}`, { maxRedirects: 0 });
+
+  await page.goto("/"); // anonymous visitor
+  const top = page.getByRole("table", { name: "Most clicked links" });
+  const row = top.getByRole("row").filter({ hasText: code });
+  await expect(row).toContainText(url);
+  await expect(row.getByRole("cell").last()).toHaveText("20");
+  await expect(top.getByRole("row").nth(1)).toContainText(code); // row 0 is the header
+  await expect(top).not.toContainText(email);
+  await expect(linksTable(page).getByRole("row").filter({ hasText: code })).toHaveCount(0);
 });
 
 test("url repetida mostra o erro do back no toast", async ({ page, request }) => {
@@ -141,7 +163,7 @@ test("url repetida mostra o erro do back no toast", async ({ page, request }) =>
   await page.getByLabel("Long URL").fill(url);
   await page.getByRole("button", { name: "Shorten" }).click();
   await expect(page.getByText("This URL has already been shortened")).toBeVisible();
-  await expect(page.getByRole("row").filter({ hasText: url })).toHaveCount(1);
+  await expect(linksTable(page).getByRole("row").filter({ hasText: url })).toHaveCount(1);
 });
 
 test("url inválida mostra o erro do back no toast", async ({ page }) => {
@@ -155,7 +177,7 @@ test("mobile 390px sem scroll horizontal", async ({ page, request }) => {
   await request.post("/api/links", { data: { url: `https://example.com/${Date.now()}/${"a".repeat(200)}` } });
   await page.setViewportSize({ width: 390, height: 800 });
   await page.goto("/");
-  await expect(page.getByRole("table")).toBeVisible();
+  await expect(linksTable(page)).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0);
 
   await page.getByLabel("Long URL").fill(`https://example.com/mobile/${Date.now()}/${"b".repeat(80)}`);

@@ -9,3 +9,6 @@ export interface Link {
 export type LinkInput = Omit<Link, "id" | "code" | "clicks" | "short_url"> & {
   personal_link: string | null;
 };
+
+/** Public ranking entry: no id, no owner. */
+export type LinkPublic = Omit<Link, "id">;
