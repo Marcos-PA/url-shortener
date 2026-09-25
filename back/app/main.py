@@ -1,23 +1,12 @@
-from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.api.routes import redirect
 from app.core.config import settings
-from app.db.session import engine
-from app.models import Base
 
-
-# ponytail: create_all só cria tabelas novas, não altera existentes. Adicione Alembic se o projeto continuar.
-@asynccontextmanager
-async def lifespan(_: FastAPI):
-    Base.metadata.create_all(engine)
-    yield
-
-
-app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
+# Schema is managed by Alembic: `uv run alembic upgrade head` before starting.
+app = FastAPI(title=settings.PROJECT_NAME)
 
 app.add_middleware(
     CORSMiddleware,

@@ -8,36 +8,22 @@ os.environ["DATABASE_URL"] = "sqlite:///./test.db"
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
+from app.db.session import engine
 from app.main import app
+from app.models import Base
+
+Base.metadata.create_all(engine)
 
 
-def test_health_and_tasks():
-    with TestClient(app) as client:  # "with" roda o lifespan (cria as tabelas)
+def test_health():
+    with TestClient(app) as client:
         assert client.get("/api/health").json() == {"status": "ok", "database": "ok"}
-        created = client.post("/api/tasks", json={"title": "teste"})
-        assert created.status_code == 201
-        assert created.json()["title"] == "teste"
-        assert any(t["title"] == "teste" for t in client.get("/api/tasks").json())
-        assert client.post("/api/tasks", json={"title": ""}).status_code == 422
 
 
 def test_supabase_url_uses_psycopg():
     url = Settings(DATABASE_URL="postgres://u:p@h:5432/db").DATABASE_URL
     assert url == "postgresql+psycopg://u:p@h:5432/db"
 
-
-def test_update_and_delete_task():
-    with TestClient(app) as client:
-        task_id = client.post("/api/tasks", json={"title": "editar"}).json()["id"]
-
-        updated = client.patch(f"/api/tasks/{task_id}", json={"done": True})
-        assert updated.status_code == 200
-        assert updated.json() == {"id": task_id, "title": "editar", "done": True}
-        assert client.patch(f"/api/tasks/{task_id}", json={"title": ""}).status_code == 422
-
-        assert client.delete(f"/api/tasks/{task_id}").status_code == 204
-        assert client.delete(f"/api/tasks/{task_id}").status_code == 404
-        assert client.patch(f"/api/tasks/{task_id}", json={"done": True}).status_code == 404
 
 
 def test_link_create_and_list():

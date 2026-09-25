@@ -13,7 +13,7 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './tests',
-  /* Os testes compartilham um banco: um worker só, para o contador de tasks não disputar. */
+  /* Os testes compartilham um banco: um worker só, para os testes não disputarem os mesmos dados. */
   fullyParallel: false,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
@@ -73,7 +73,7 @@ export default defineConfig({
   /* Stack isolada para E2E: back em :8001 com SQLite descartável, front em :5174. Nunca toca o Supabase. */
   webServer: [
     {
-      command: 'rm -f e2e.db && uv run uvicorn app.main:app --port 8001',
+      command: 'rm -f e2e.db && uv run alembic upgrade head && uv run uvicorn app.main:app --port 8001',
       cwd: './back',
       env: { DATABASE_URL: 'sqlite:///./e2e.db', PUBLIC_BASE_URL: 'http://localhost:8001' },
       url: 'http://localhost:8001/api/health',

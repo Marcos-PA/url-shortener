@@ -1,8 +1,7 @@
 from fastapi import APIRouter
 
-from app.api.routes import health, link, task
+from app.api.routes import health, link
 
 api_router = APIRouter()
 api_router.include_router(health.router)
-api_router.include_router(task.router)
 api_router.include_router(link.router)

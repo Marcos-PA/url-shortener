@@ -15,8 +15,8 @@ Deploy: front na Vercel, back no Render (render.yaml). Cada `git push` na main f
 - Banco na rota: parâmetro `db: DbSession` (de `app.db.session`).
 - Model SQLAlchemy: `app/models/<recurso>.py`, herdando `Base`; importar em `app/models/__init__.py`
   (senão a tabela não é criada).
-- Tabelas são criadas no startup (`create_all`). Ele NÃO altera tabela existente: mudou colunas de um
-  model já criado → apagar a tabela no Supabase (Table Editor) e reiniciar o back.
+- Schema via Alembic: mudou/criou model → `uv run alembic revision --autogenerate -m "..."` e
+  `uv run alembic upgrade head`. O Render roda `upgrade head` no start. Pytest cria as tabelas com `create_all`.
 - Schemas Pydantic (entrada/saída): `app/schemas/<recurso>.py`. Nunca retornar model direto.
 - Regra de negócio: `app/services/<recurso>.py`. Rotas ficam finas.
 - Config/segredos: `app/core/config.py` + `.env`. Nada hardcoded. Nova variável → adicionar também
