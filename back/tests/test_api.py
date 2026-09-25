@@ -1,4 +1,5 @@
 import os
+import uuid
 from pathlib import Path
 
 # Banco novo a cada execução: senão um teste de campo único (2º POST = 409) falha na 2ª rodada.
@@ -21,7 +22,7 @@ def test_health():
 
 
 def test_supabase_url_uses_psycopg():
-    url = Settings(DATABASE_URL="postgres://u:p@h:5432/db").DATABASE_URL
+    url = Settings(DATABASE_URL="postgres://u:p@h:5432/db", SECRET_KEY="x" * 32).DATABASE_URL
     assert url == "postgresql+psycopg://u:p@h:5432/db"
 
 
@@ -97,10 +98,10 @@ def test_duplicate_url_race_hits_unique_constraint(monkeypatch):
         calls = []
 
         # First check misses the existing row, as if another request inserted it right after.
-        def racy_check(db, url):
+        def racy_check(db, url, owner):
             calls.append(url)
             if len(calls) > 1:
-                real_check(db, url)
+                real_check(db, url, owner)
 
         monkeypatch.setattr(links_service, "_ensure_url_is_new", racy_check)
         assert client.post("/api/links", json={"url": "https://example.com/race"}).status_code == 409
@@ -125,3 +126,76 @@ def test_personal_link():
         # empty/None falls back to a random code
         random = client.post("/api/links", json={"url": "https://example.com/rand", "personal_link": None})
         assert random.status_code == 201 and len(random.json()["code"]) == 7
+
+
+
+def test_production_requires_secret_key():
+    import pytest
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="SECRET_KEY"):
+        Settings(DATABASE_URL="postgres://u:p@h:5432/db", SECRET_KEY="dev-only-secret-change-me")
+
+
+def _register(client, email=None, password="s3cret-pass"):
+    email = email or f"{uuid.uuid4().hex[:8]}@example.com"
+    r = client.post("/api/auth/register", json={"email": email, "password": password})
+    assert r.status_code == 201, r.text
+    return email, {"Authorization": f"Bearer {r.json()['access_token']}"}
+
+
+def test_register_login_me():
+    with TestClient(app) as client:
+        email, auth = _register(client)
+        assert client.get("/api/auth/me", headers=auth).json()["email"] == email
+
+        dup = client.post("/api/auth/register", json={"email": email.upper(), "password": "another-pass"})
+        assert dup.status_code == 409 and dup.json() == {"detail": "E-mail already registered"}
+        assert client.post("/api/auth/register", json={"email": "bad", "password": "s3cret-pass"}).status_code == 422
+        assert client.post("/api/auth/register", json={"email": "a@b.co", "password": "short"}).status_code == 422
+
+        ok = client.post("/api/auth/login", json={"email": email, "password": "s3cret-pass"})
+        assert ok.status_code == 200 and ok.json()["user"]["email"] == email
+        wrong = client.post("/api/auth/login", json={"email": email, "password": "wrong-pass"})
+        assert wrong.status_code == 401 and wrong.json() == {"detail": "Invalid e-mail or password"}
+        unknown = client.post("/api/auth/login", json={"email": "nobody@example.com", "password": "s3cret-pass"})
+        assert unknown.status_code == 401
+
+        assert client.get("/api/auth/me").status_code == 401
+        bad = client.get("/api/links", headers={"Authorization": "Bearer 1.9999999999.forged"})
+        assert bad.status_code == 401
+
+
+def test_expired_token_is_rejected(monkeypatch):
+    from app.core import security
+
+    with TestClient(app) as client:
+        _, auth = _register(client)
+        monkeypatch.setattr(security.time, "time", lambda: 10**12)
+        assert client.get("/api/auth/me", headers=auth).status_code == 401
+
+
+def test_links_are_scoped_to_their_owner():
+    with TestClient(app) as client:
+        _, alice = _register(client)
+        _, bob = _register(client)
+        url = f"https://example.com/owned/{uuid.uuid4().hex}"
+
+        mine = client.post("/api/links", json={"url": url}, headers=alice)
+        assert mine.status_code == 201
+        # same URL: 409 for the same owner, fine for someone else and for anonymous
+        assert client.post("/api/links", json={"url": url}, headers=alice).status_code == 409
+        assert client.post("/api/links", json={"url": url}, headers=bob).status_code == 201
+        assert client.post("/api/links", json={"url": url}).status_code == 201
+        assert client.post("/api/links", json={"url": url}).status_code == 409
+
+        alice_ids = [x["id"] for x in client.get("/api/links", headers=alice).json()]
+        assert alice_ids == [mine.json()["id"]]
+        assert mine.json()["id"] not in [x["id"] for x in client.get("/api/links", headers=bob).json()]
+        assert mine.json()["id"] not in [x["id"] for x in client.get("/api/links").json()]
+
+        # anyone can follow a short link, only the owner can delete it
+        assert client.get(f"/{mine.json()['code']}", follow_redirects=False).status_code == 302
+        assert client.delete(f"/api/links/{mine.json()['id']}", headers=bob).status_code == 404
+        assert client.delete(f"/api/links/{mine.json()['id']}").status_code == 404
+        assert client.delete(f"/api/links/{mine.json()['id']}", headers=alice).status_code == 204

@@ -24,11 +24,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import UrlRuler from "@/components/UrlRuler";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useAuth } from "@/hooks/useAuth";
 import { getErrorMessage } from "@/services/api";
 import { createLink, deleteLink, listLinks } from "@/services/linkService";
 import type { Link } from "@/types/link";
 
 export default function Links() {
+  const { user, ready } = useAuth();
   const [links, setLinks] = useState<Link[] | null>(null);
   const [url, setUrl] = useState("");
   const [saving, setSaving] = useState(false);
@@ -36,14 +38,16 @@ export default function Links() {
   const [personalLink, setPersonalLink] = useState("");
   const [showQr, setShowQr] = useState(false);
 
+  // Logged in: your links. Anonymous: links without an owner. (MainLayout remounts this page on login/logout.)
   useEffect(() => {
+    if (!ready) return;
     listLinks()
       .then(setLinks)
       .catch((err) => {
         setLinks([]);
         toast.error(getErrorMessage(err, "Could not load links."), { id: "load-links" });
       });
-  }, []);
+  }, [ready]);
 
   async function shorten(withQr: boolean) {
     setSaving(true);
@@ -96,7 +100,13 @@ export default function Links() {
     <Card>
       <CardHeader>
         <CardTitle className="font-heading text-2xl">Links</CardTitle>
-        <CardDescription>{links ? `${links.length} shortened` : "Loading..."}</CardDescription>
+        <CardDescription>
+          {!links
+            ? "Loading..."
+            : user
+              ? `Your links · ${links.length} shortened`
+              : `${links.length} shortened · log in to keep track of your own links`}
+        </CardDescription>
       </CardHeader>
 
       <CardContent className="flex flex-col gap-6">

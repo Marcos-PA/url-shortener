@@ -95,6 +95,45 @@ test("link personalizado usa o nome escolhido e recusa nome repetido", async ({ 
   await expect(page.getByText("This personal link is already taken")).toBeVisible();
 });
 
+test("conta: criar, encurtar, sair e entrar de novo mantém os links do usuário", async ({ page }) => {
+  const email = `e2e-${Date.now()}@example.com`;
+  const url = `https://example.com/mine/${Date.now()}`;
+  const header = page.getByRole("banner");
+
+  await page.goto("/");
+  await header.getByRole("link", { name: "Log in" }).click();
+  await page.getByRole("tab", { name: "Create account" }).click();
+  await page.getByLabel("E-mail").fill(email);
+  await page.getByLabel("Password").fill("s3cret-pass");
+  await page.getByRole("main").getByRole("button", { name: "Create account" }).click();
+
+  await expect(page).toHaveURL("/");
+  await expect(header.getByText(email)).toBeVisible();
+  await expect(page.getByText(/Your links · 0 shortened/)).toBeVisible();
+  await page.getByLabel("Long URL").fill(url);
+  await page.getByRole("button", { name: "Shorten" }).click();
+  await expect(page.getByRole("row").filter({ hasText: url })).toBeVisible();
+
+  await header.getByRole("button", { name: "Log out" }).click();
+  await expect(page.getByText(/log in to keep track/)).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: url })).toHaveCount(0);
+
+  await header.getByRole("link", { name: "Log in" }).click();
+  await page.getByLabel("E-mail").fill(email);
+  await page.getByLabel("Password").fill("wrong-pass");
+  await page.getByRole("main").getByRole("button", { name: "Log in" }).click();
+  await expect(page.getByText("Invalid e-mail or password")).toBeVisible();
+
+  await page.getByLabel("Password").fill("s3cret-pass");
+  await page.getByRole("main").getByRole("button", { name: "Log in" }).click();
+  await expect(page).toHaveURL("/");
+  await expect(page.getByRole("row").filter({ hasText: url })).toBeVisible();
+
+  await page.reload();
+  await expect(header.getByText(email)).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: url })).toBeVisible();
+});
+
 test("url repetida mostra o erro do back no toast", async ({ page, request }) => {
   const url = `https://example.com/dup/${Date.now()}`;
   await request.post("/api/links", { data: { url } });

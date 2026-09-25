@@ -17,6 +17,9 @@ Playwright. Deployed on Vercel (front), Render (back) and Supabase (database).
 | GET    | `/api/links`  | All links, newest first, with click counts.                           |
 | DELETE | `/api/links/{id}` | 204. The short link stops working. Unknown id → 404 `{"detail": "Link not found"}`. |
 | GET    | `/{code}`     | 302 to the original URL and `clicks + 1`. Unknown code → 404 `{"detail": "Short code not found"}`. |
+| POST   | `/api/auth/register` | `{"email", "password"}` (password ≥ 8 chars) → 201 `{access_token, user}`. E-mail taken → 409. |
+| POST   | `/api/auth/login` | Same body → `{access_token, user}`. Wrong e-mail or password → 401. |
+| GET    | `/api/auth/me` | Current user (needs `Authorization: Bearer <token>`). |
 | GET    | `/api/health` | API and database status.                                              |
 
 The redirect lives outside `/api` so short links stay short (`https://<api>/<code>`). They point to the
@@ -36,6 +39,17 @@ requests read the same value and both write `n + 1`. The same statement also ret
 there is one round trip and no window between "find" and "count".
 
 Checked against the production Postgres: 50 parallel GETs to one short link → 50 × 302 and `clicks == 50`.
+
+## Accounts
+
+Login is optional. Anonymous visitors shorten and see the links without an owner; logged-in users see and
+delete only their own links. Short links themselves are public: anyone with the link is redirected.
+
+- Passwords are hashed with `hashlib.scrypt` and a random salt (stdlib, no extra dependency).
+- The token is `<user_id>.<expires_at>.<HMAC-SHA256 signature>` signed with `SECRET_KEY`, valid for 7 days.
+  It is stateless: logging out drops it on the client, there is no server-side revocation.
+- The front keeps the token in `localStorage` and sends it as `Authorization: Bearer <token>`.
+- Someone else's link answers 404, not 403, so ids of other users' links aren't revealed.
 
 ## How short codes are generated
 
@@ -73,6 +87,7 @@ Environment variables (`back/.env`, and the Render dashboard in production):
 | `DATABASE_URL`    | `sqlite:///./app.db` or the Supabase session pooler URL |
 | `CORS_ORIGINS`    | `["http://localhost:5173"]`                         |
 | `PUBLIC_BASE_URL` | `https://url-shortener-api-7pv8.onrender.com`       |
+| `SECRET_KEY`      | long random value (`openssl rand -hex 32`); required with Postgres |
 
 Front (Vercel): `VITE_API_URL` = `<API URL>/api`.
 
@@ -101,15 +116,15 @@ that breaks CI is never deployed to the API.
 
 ## Assumptions
 
-- Each URL can be shortened only once: a second POST gets 409 (enforced by a unique index on `url`, so
-  two simultaneous requests can't both get through).
+- Each URL can be shortened once per account (and once among anonymous links): a second POST gets 409.
+  Enforced by partial unique indexes on `(owner_id, url)` and on `url` where `owner_id IS NULL`.
 - Codes are random unless the user picks a personal link; `api`, `docs` and `redoc` are reserved because the
   app already serves those paths.
 - Links can be deleted (with a confirmation dialog) but not edited.
 - URLs are stored as normalized by Pydantic's `HttpUrl` (e.g. `https://example.com` → `https://example.com/`).
 - The pytest click test is sequential; the concurrency guarantee comes from the atomic `UPDATE` above and
   was checked manually against Postgres (SQLite in tests serializes writes anyway).
-- No authentication: it is an internal tool.
+- No e-mail verification or password reset.
 
 ## Gotchas
 
