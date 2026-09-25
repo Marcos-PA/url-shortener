@@ -16,6 +16,9 @@ test("links: encurta, abre o link curto e o clique é contado", async ({ page, c
   await expect(shortLink).toHaveAttribute("href", /^http:\/\/localhost:8001\/[A-Za-z0-9]{7}$/);
   await expect(page.getByRole("alert").getByRole("link")).toHaveAttribute("href", (await shortLink.getAttribute("href"))!);
   await expect(linkRow.getByRole("cell").nth(2)).toHaveText("0");
+  const ruler = page.getByRole("figure");
+  await expect(ruler).toContainText(`${url.length} chars`);
+  await expect(ruler).toContainText(/\d+% shorter/);
 
   const [tab] = await Promise.all([context.waitForEvent("page"), shortLink.click()]);
   await expect(tab).toHaveURL(url);
@@ -77,6 +80,11 @@ test("mobile 390px sem scroll horizontal", async ({ page, request }) => {
   await page.goto("/");
   await expect(page.getByRole("table")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0);
+
+  await page.getByLabel("Long URL").fill(`https://example.com/mobile/${Date.now()}/${"b".repeat(80)}`);
+  await page.getByRole("button", { name: "Shorten" }).click();
+  await expect(page.getByRole("figure")).toBeVisible();
+  expect(await page.getByRole("alert").evaluate((el) => el.scrollWidth - el.clientWidth)).toBe(0);
 });
 
 test("API fora do ar mostra toast de erro e estado vazio", async ({ page }) => {

@@ -20,6 +20,7 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import UrlRuler from "@/components/UrlRuler";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getErrorMessage } from "@/services/api";
 import { createLink, deleteLink, listLinks } from "@/services/linkService";
@@ -105,8 +106,8 @@ export default function Links() {
           <Alert>
             <LinkIcon />
             <AlertTitle>Your short link</AlertTitle>
-            <AlertDescription>
-              <div className="flex items-center gap-2">
+            <AlertDescription className="min-w-0">
+              <div className="flex min-w-0 items-center gap-2">
                 <a
                   href={created.short_url}
                   target="_blank"
@@ -119,6 +120,9 @@ export default function Links() {
                   <CopyIcon data-icon="inline-start" />
                   Copy
                 </Button>
+              </div>
+              <div className="mt-3 w-full">
+                <UrlRuler original={created.url} short={created.short_url} />
               </div>
             </AlertDescription>
           </Alert>
