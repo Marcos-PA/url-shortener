@@ -20,7 +20,7 @@ export default function Home() {
   return (
     <section className="flex flex-col gap-8">
       <div className="flex flex-col gap-3">
-        <h1 className="font-heading text-3xl font-semibold tracking-tight">Projeto pronto</h1>
+        <h1 className="font-heading text-3xl font-semibold tracking-tight">URL Shortener</h1>
         <p className="text-muted-foreground">Organize o que precisa ser feito, marque o que já foi.</p>
         <div>
           <Button asChild>

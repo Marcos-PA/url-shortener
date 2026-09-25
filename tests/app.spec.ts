@@ -12,7 +12,7 @@ const addButton = (page: Page) => page.getByRole("button", { name: "Adicionar", 
 
 test("home mostra status da API e do banco", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Projeto pronto" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "URL Shortener" })).toBeVisible();
   await expect(page.getByText("API: ok")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("Banco: ok")).toBeVisible();
   await expect(page.getByRole("link", { name: "Início" })).toHaveAttribute("aria-current", "page");

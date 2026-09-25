@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: api
+    name: url-shortener-api
     runtime: python
     plan: free
     rootDir: back
