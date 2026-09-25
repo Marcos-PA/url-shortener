@@ -75,7 +75,7 @@ export default defineConfig({
     {
       command: 'rm -f e2e.db && uv run uvicorn app.main:app --port 8001',
       cwd: './back',
-      env: { DATABASE_URL: 'sqlite:///./e2e.db' },
+      env: { DATABASE_URL: 'sqlite:///./e2e.db', PUBLIC_BASE_URL: 'http://localhost:8001' },
       url: 'http://localhost:8001/api/health',
       reuseExistingServer: false,
     },

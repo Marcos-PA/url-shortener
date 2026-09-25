@@ -136,13 +136,25 @@ test("sem erros no console no fluxo normal", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test("links: encurta uma URL e ela aparece na tabela", async ({ page }) => {
+test("links: encurta, abre o link curto e o clique é contado", async ({ page, context }) => {
   const url = `https://example.com/e2e/${Date.now()}`;
+  await context.route("https://example.com/**", (r) => r.fulfill({ body: "destino" }));
   await page.goto("/links");
   await page.getByLabel("Long URL").fill(url);
   await page.getByRole("button", { name: "Shorten" }).click();
-  const linkRow = page.getByRole("row").filter({ hasText: url });
-  await expect(linkRow).toBeVisible();
-  await expect(linkRow.getByRole("cell").nth(1)).toHaveText(/^[A-Za-z0-9]{7}$/);
   await expect(page.getByLabel("Long URL")).toHaveValue("");
+
+  const linkRow = page.getByRole("row").filter({ hasText: url });
+  const shortLink = linkRow.getByRole("link");
+  await expect(shortLink).toHaveText(/^[A-Za-z0-9]{7}$/);
+  await expect(shortLink).toHaveAttribute("href", /^http:\/\/localhost:8001\/[A-Za-z0-9]{7}$/);
+  await expect(page.getByRole("alert").getByRole("link")).toHaveAttribute("href", (await shortLink.getAttribute("href"))!);
+  await expect(linkRow.getByRole("cell").last()).toHaveText("0");
+
+  const [tab] = await Promise.all([context.waitForEvent("page"), shortLink.click()]);
+  await expect(tab).toHaveURL(url);
+  await tab.close();
+
+  await page.reload();
+  await expect(linkRow.getByRole("cell").last()).toHaveText("1");
 });

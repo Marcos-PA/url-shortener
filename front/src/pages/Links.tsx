@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { LinkIcon } from "lucide-react";
+import { ExternalLinkIcon, LinkIcon } from "lucide-react";
 import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
@@ -17,6 +18,7 @@ export default function Links() {
   const [links, setLinks] = useState<Link[] | null>(null);
   const [url, setUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  const [created, setCreated] = useState<Link | null>(null);
 
   useEffect(() => {
     listLinks()
@@ -33,6 +35,7 @@ export default function Links() {
     try {
       const saved = await createLink({ url });
       setLinks((prev) => [saved, ...(prev ?? [])]);
+      setCreated(saved);
       setUrl("");
     } catch (err) {
       toast.error(getErrorMessage(err, "Could not shorten the URL."));
@@ -67,6 +70,18 @@ export default function Links() {
           </Button>
         </form>
 
+        {created && (
+          <Alert>
+            <LinkIcon />
+            <AlertTitle>Your short link</AlertTitle>
+            <AlertDescription>
+              <a href={created.short_url} target="_blank" rel="noreferrer" className="font-mono text-primary underline">
+                {created.short_url}
+              </a>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {!links ? (
           <div className="flex flex-col gap-3" aria-busy="true">
             {[0, 1, 2].map((i) => (
@@ -88,7 +103,7 @@ export default function Links() {
             <TableHeader>
               <TableRow>
                 <TableHead>Original URL</TableHead>
-                <TableHead>Code</TableHead>
+                <TableHead>Short link</TableHead>
                 <TableHead className="text-right">Clicks</TableHead>
               </TableRow>
             </TableHeader>
@@ -98,7 +113,17 @@ export default function Links() {
                   <TableCell className="max-w-64 truncate" title={l.url}>
                     {l.url}
                   </TableCell>
-                  <TableCell className="font-mono">{l.code}</TableCell>
+                  <TableCell>
+                    <a
+                      href={l.short_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 font-mono text-primary underline"
+                    >
+                      {l.code}
+                      <ExternalLinkIcon aria-hidden className="size-3" />
+                    </a>
+                  </TableCell>
                   <TableCell className="text-right">{l.clicks}</TableCell>
                 </TableRow>
               ))}
