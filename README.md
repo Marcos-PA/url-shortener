@@ -3,8 +3,8 @@
 Internal URL shortener (think bit.ly). Paste a long URL, get a short code; opening the short link
 redirects (302) to the original URL and counts the click.
 
-- App: https://url-shortener-dun-chi.vercel.app
-- API: https://url-shortener-api-7pv8.onrender.com (docs at `/docs`)
+- App: `https://<your-app>.vercel.app`
+- API: `https://<your-api>.onrender.com` (docs at `/docs`)
 
 Stack: React + Vite + TS + Tailwind + shadcn/ui · FastAPI + SQLAlchemy 2 + Alembic · Postgres (Supabase) ·
 Playwright. Deployed on Vercel (front), Render (back) and Supabase (database).
@@ -97,7 +97,7 @@ Environment variables (`back/.env`, and the Render dashboard in production):
 | ----------------- | --------------------------------------------------- |
 | `DATABASE_URL`    | `sqlite:///./app.db` or the Supabase session pooler URL |
 | `CORS_ORIGINS`    | `["http://localhost:5173"]`                         |
-| `PUBLIC_BASE_URL` | `https://url-shortener-api-7pv8.onrender.com`       |
+| `PUBLIC_BASE_URL` | `https://<your-api>.onrender.com`                   |
 | `SECRET_KEY`      | long random value (`openssl rand -hex 32`); required with Postgres |
 
 Front (Vercel): `VITE_API_URL` = `<API URL>/api`.

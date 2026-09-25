@@ -14,6 +14,6 @@ services:
       - key: CORS_ORIGINS
         sync: false # ex: ["https://meu-app.vercel.app"]
       - key: PUBLIC_BASE_URL
-        sync: false # ex: https://url-shortener-api-7pv8.onrender.com
+        sync: false # ex: https://meu-app-api.onrender.com
       - key: SECRET_KEY
         generateValue: true # assina os tokens de login; o back não sobe com Postgres sem ele
