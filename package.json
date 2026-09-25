@@ -1,0 +1,25 @@
+{
+  "name": "fullstack-template",
+  "version": "1.0.0",
+  "description": "React + Vite + TS + Tailwind · FastAPI + SQLAlchemy · Postgres (Supabase). Deploy grátis: Vercel (front) + Render (back) + Supabase (banco).",
+  "main": "index.js",
+  "scripts": {
+    "test:e2e": "playwright test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Marcos-PA/fullstack-template.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Marcos-PA/fullstack-template/issues"
+  },
+  "homepage": "https://github.com/Marcos-PA/fullstack-template#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.6.2"
+  }
+}
