@@ -1,7 +1,18 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { ExternalLinkIcon, LinkIcon } from "lucide-react";
+import { ExternalLinkIcon, LinkIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
@@ -11,7 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getErrorMessage } from "@/services/api";
-import { createLink, listLinks } from "@/services/linkService";
+import { createLink, deleteLink, listLinks } from "@/services/linkService";
 import type { Link } from "@/types/link";
 
 export default function Links() {
@@ -41,6 +52,17 @@ export default function Links() {
       toast.error(getErrorMessage(err, "Could not shorten the URL."));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDelete(link: Link) {
+    try {
+      await deleteLink(link.id);
+      setLinks((prev) => prev?.filter((l) => l.id !== link.id) ?? null);
+      setCreated((prev) => (prev?.id === link.id ? null : prev));
+      toast.success(`Link "${link.code}" deleted.`);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Could not delete the link."));
     }
   }
 
@@ -105,6 +127,7 @@ export default function Links() {
                 <TableHead>Original URL</TableHead>
                 <TableHead>Short link</TableHead>
                 <TableHead className="text-right">Clicks</TableHead>
+                <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -125,6 +148,29 @@ export default function Links() {
                     </a>
                   </TableCell>
                   <TableCell className="text-right">{l.clicks}</TableCell>
+                  <TableCell className="text-right">
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" aria-label={`Delete "${l.code}"`}>
+                          <Trash2Icon />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete this link?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            The short link "{l.code}" will stop working and its click count will be lost.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction variant="destructive" onClick={() => handleDelete(l)}>
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

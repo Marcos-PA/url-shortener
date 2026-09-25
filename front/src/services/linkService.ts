@@ -10,3 +10,7 @@ export async function createLink(input: LinkInput): Promise<Link> {
   const { data } = await api.post<Link>("/links", input);
   return data;
 }
+
+export async function deleteLink(id: number): Promise<void> {
+  await api.delete(`/links/${id}`);
+}

@@ -37,6 +37,18 @@ def list_links(db: Session) -> list[Link]:
     return list(db.scalars(select(Link).order_by(Link.id.desc())))
 
 
+def get_link(db: Session, link_id: int) -> Link:
+    link = db.get(Link, link_id)
+    if link is None:
+        raise HTTPException(status_code=404, detail="Link not found")
+    return link
+
+
+def delete_link(db: Session, link_id: int) -> None:
+    db.delete(get_link(db, link_id))
+    db.commit()
+
+
 # One atomic UPDATE: the database increments under its row lock, so concurrent clicks are never lost
 # (a read-then-write in Python would let two requests read the same value and save n+1 twice).
 def resolve_and_count(db: Session, code: str) -> str:

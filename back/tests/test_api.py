@@ -72,3 +72,13 @@ def test_code_collision_retries(monkeypatch):
 
         monkeypatch.setattr(links_service, "generate_code", lambda: taken)
         assert client.post("/api/links", json={"url": "https://example.com/c"}).status_code == 503
+
+
+def test_delete_link():
+    with TestClient(app) as client:
+        link = client.post("/api/links", json={"url": "https://example.com/delete-me"}).json()
+        assert client.delete(f"/api/links/{link['id']}").status_code == 204
+        assert all(x["id"] != link["id"] for x in client.get("/api/links").json())
+        assert client.get(f"/{link['code']}", follow_redirects=False).status_code == 404
+        missing = client.delete(f"/api/links/{link['id']}")
+        assert missing.status_code == 404 and missing.json() == {"detail": "Link not found"}

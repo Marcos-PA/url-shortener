@@ -15,6 +15,7 @@ Playwright. Deployed on Vercel (front), Render (back) and Supabase (database).
 | ------ | ------------- | --------------------------------------------------------------------- |
 | POST   | `/api/links`  | `{"url": "https://..."}` → 201 with `id`, `url`, `code`, `clicks`, `short_url`. Non-http(s) or malformed URL → 422. |
 | GET    | `/api/links`  | All links, newest first, with click counts.                           |
+| DELETE | `/api/links/{id}` | 204. The short link stops working. Unknown id → 404 `{"detail": "Link not found"}`. |
 | GET    | `/{code}`     | 302 to the original URL and `clicks + 1`. Unknown code → 404 `{"detail": "Short code not found"}`. |
 | GET    | `/api/health` | API and database status.                                              |
 
@@ -46,7 +47,7 @@ tries a new code (up to 5 times, then 503). There is no "check if it exists, the
 
 ```
 back/app/
-  api/routes/link.py      POST/GET /api/links (thin, calls the service)
+  api/routes/link.py      POST/GET/DELETE /api/links (thin, calls the service)
   api/routes/redirect.py  GET /{code}
   services/links.py       code generation + retry, atomic click count
   schemas/link.py         Pydantic in/out (HttpUrl validation, computed short_url)
@@ -96,7 +97,7 @@ shorten a URL → it appears in the table → open the short link → the click 
 
 - The same URL submitted twice gets two different codes (no dedup).
 - Codes are always random (no custom aliases).
-- Links cannot be edited or deleted.
+- Links can be deleted (with a confirmation dialog) but not edited.
 - URLs are stored as normalized by Pydantic's `HttpUrl` (e.g. `https://example.com` → `https://example.com/`).
 - The pytest click test is sequential; the concurrency guarantee comes from the atomic `UPDATE` above and
   was checked manually against Postgres (SQLite in tests serializes writes anyway).

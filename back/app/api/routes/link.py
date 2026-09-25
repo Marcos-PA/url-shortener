@@ -15,3 +15,8 @@ def list_links(db: DbSession):
 @router.post("", response_model=LinkResponse, status_code=201)
 def create_link(db: DbSession, link: LinkCreate):
     return links_service.create_link(db, link)
+
+
+@router.delete("/{link_id}", status_code=204)
+def delete_link(db: DbSession, link_id: int):
+    links_service.delete_link(db, link_id)

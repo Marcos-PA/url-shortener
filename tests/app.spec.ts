@@ -15,14 +15,33 @@ test("links: encurta, abre o link curto e o clique é contado", async ({ page, c
   await expect(shortLink).toHaveText(/^[A-Za-z0-9]{7}$/);
   await expect(shortLink).toHaveAttribute("href", /^http:\/\/localhost:8001\/[A-Za-z0-9]{7}$/);
   await expect(page.getByRole("alert").getByRole("link")).toHaveAttribute("href", (await shortLink.getAttribute("href"))!);
-  await expect(linkRow.getByRole("cell").last()).toHaveText("0");
+  await expect(linkRow.getByRole("cell").nth(2)).toHaveText("0");
 
   const [tab] = await Promise.all([context.waitForEvent("page"), shortLink.click()]);
   await expect(tab).toHaveURL(url);
   await tab.close();
 
   await page.reload();
-  await expect(linkRow.getByRole("cell").last()).toHaveText("1");
+  await expect(linkRow.getByRole("cell").nth(2)).toHaveText("1");
+});
+
+test("excluir pede confirmação e remove o link", async ({ page, request }) => {
+  const url = `https://example.com/delete/${Date.now()}`;
+  const { code } = await (await request.post("/api/links", { data: { url } })).json();
+  await page.goto("/");
+  const linkRow = page.getByRole("row").filter({ hasText: url });
+
+  await page.getByRole("button", { name: `Delete "${code}"` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Cancel" }).click();
+  await expect(linkRow).toBeVisible();
+
+  await page.getByRole("button", { name: `Delete "${code}"` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete" }).click();
+  await expect(linkRow).toHaveCount(0);
+  await expect(page.getByText(`Link "${code}" deleted.`)).toBeVisible();
+  await page.reload();
+  await expect(page.getByText(/\d+ shortened/)).toBeVisible();
+  await expect(linkRow).toHaveCount(0);
 });
 
 test("url inválida mostra o erro do back no toast", async ({ page }) => {
