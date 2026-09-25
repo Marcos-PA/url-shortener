@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     API_PREFIX: str = "/api"
     DATABASE_URL: str = "sqlite:///./app.db"
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]
+    # Where short links point to (the back, not the Vercel front).
+    PUBLIC_BASE_URL: str = "http://localhost:8000"
 
     # Supabase/Render entregam "postgresql://" ou "postgres://"; SQLAlchemy precisa do driver psycopg 3.
     @field_validator("DATABASE_URL")

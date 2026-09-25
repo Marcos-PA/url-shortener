@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
+from app.api.routes import redirect
 from app.core.config import settings
 from app.db.session import engine
 from app.models import Base
@@ -27,3 +28,4 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix=settings.API_PREFIX)
+app.include_router(redirect.router)

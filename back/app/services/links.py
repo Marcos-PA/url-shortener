@@ -2,7 +2,7 @@ import secrets
 import string
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -35,3 +35,13 @@ def create_link(db: Session, data: LinkCreate) -> Link:
 
 def list_links(db: Session) -> list[Link]:
     return list(db.scalars(select(Link).order_by(Link.id.desc())))
+
+
+# One atomic UPDATE: the database increments under its row lock, so concurrent clicks are never lost
+# (a read-then-write in Python would let two requests read the same value and save n+1 twice).
+def resolve_and_count(db: Session, code: str) -> str:
+    url = db.scalar(update(Link).where(Link.code == code).values(clicks=Link.clicks + 1).returning(Link.url))
+    if url is None:
+        raise HTTPException(status_code=404, detail="Short code not found")
+    db.commit()
+    return url

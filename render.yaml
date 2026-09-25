@@ -12,3 +12,5 @@ services:
         sync: false # pedido no painel do Render ao criar
       - key: CORS_ORIGINS
         sync: false # ex: ["https://meu-app.vercel.app"]
+      - key: PUBLIC_BASE_URL
+        sync: false # ex: https://url-shortener-api-7pv8.onrender.com
